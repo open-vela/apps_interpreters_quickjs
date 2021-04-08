@@ -640,6 +640,9 @@ static inline void JS_FreeValue(JSContext *ctx, JSValue v)
 {
     if (JS_VALUE_HAS_REF_COUNT(v)) {
         JSRefCountHeader *p = (JSRefCountHeader *)JS_VALUE_GET_PTR(v);
+        if (p == NULL) {
+            return;
+        }
         if (--p->ref_count <= 0) {
             __JS_FreeValue(ctx, v);
         }
@@ -1034,6 +1037,11 @@ int JS_SetModuleExport(JSContext *ctx, JSModuleDef *m, const char *export_name,
                        JSValue val);
 int JS_SetModuleExportList(JSContext *ctx, JSModuleDef *m,
                            const JSCFunctionListEntry *tab, int len);
+
+JSValueConst JS_GetModuleExport(JSContext *ctx, const JSModuleDef *m, const char *export_name);
+int JS_CountModuleExport(JSContext *ctx, const JSModuleDef *m);
+JSAtom JS_GetModuleExportName(JSContext *ctx, const JSModuleDef *m, int idx);
+JSValueConst JS_GetModuleExportValue(JSContext *ctx, const JSModuleDef *m, int idx);
 
 #undef js_unlikely
 #undef js_force_inline
