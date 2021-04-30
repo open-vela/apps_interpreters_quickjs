@@ -27241,7 +27241,7 @@ int JS_SetModuleExport(JSContext *ctx, JSModuleDef *m, const char *export_name,
     return -1;
 }
 
-JSValueConst JS_GetModuleExport(JSContext *ctx, const JSModuleDef *m, const char *export_name)
+JSValueConst JS_GetModuleExport(JSContext *ctx, JSModuleDef *m, const char *export_name)
 {
     JSExportEntry *me;
     JSAtom name;

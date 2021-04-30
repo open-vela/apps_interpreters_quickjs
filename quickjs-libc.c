@@ -2833,7 +2833,7 @@ static int my_execvpe(const char *filename, char **argv, char **envp)
 }
 
 /* exec(args[, options]) -> exitcode */
-static JSValue js_os_exec(JSContext *ctx, JSValueConst this_val,
+static __attribute__((unused)) JSValue js_os_exec(JSContext *ctx, JSValueConst this_val,
                           int argc, JSValueConst *argv)
 {
     JSValueConst options, args = argv[0];

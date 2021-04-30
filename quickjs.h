@@ -1042,7 +1042,7 @@ int JS_SetModuleExport(JSContext *ctx, JSModuleDef *m, const char *export_name,
 int JS_SetModuleExportList(JSContext *ctx, JSModuleDef *m,
                            const JSCFunctionListEntry *tab, int len);
 
-JSValueConst JS_GetModuleExport(JSContext *ctx, const JSModuleDef *m, const char *export_name);
+JSValueConst JS_GetModuleExport(JSContext *ctx, JSModuleDef *m, const char *export_name);
 int JS_CountModuleExport(JSContext *ctx, const JSModuleDef *m);
 JSAtom JS_GetModuleExportName(JSContext *ctx, const JSModuleDef *m, int idx);
 JSValueConst JS_GetModuleExportValue(JSContext *ctx, const JSModuleDef *m, int idx);
