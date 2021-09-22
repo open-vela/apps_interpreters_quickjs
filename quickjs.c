@@ -31089,9 +31089,19 @@ static __exception int resolve_variables(JSContext *ctx, JSFunctionDef *s)
                 /* remove dead code */
                 int line = -1;
                 dbuf_put(&bc_out, bc_buf + pos, len);
-                pos = skip_dead_code(s, bc_buf, bc_len, pos + len, &line);
+                if(pos + len < bc_len)
+                    pos = skip_dead_code(s, bc_buf, bc_len, pos + len, &line);
+                else {
+                    //NOTE: already arrive the function end, give a valid value to save line num.
+                    // pengyaozong 2021.09.17
+                    pos += len;
+                    line = line_num + 1;
+                }
+
                 pos_next = pos;
-                if (pos < bc_len && line >= 0 && line_num != line) {
+                //NOTE: use <= instead of < to allow we save the last line num
+                // pengyaozong 2021.09.17
+                if (pos <= bc_len && line >= 0 && line_num != line) {
                     line_num = line;
                     s->line_number_size++;
                     dbuf_putc(&bc_out, OP_line_num);
