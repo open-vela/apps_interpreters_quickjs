@@ -460,6 +460,7 @@ struct JSContext {
     JSValue (*eval_internal)(JSContext *ctx, JSValueConst this_obj,
                              const char *input, size_t input_len,
                              const char *filename, int flags, int scope_idx);
+    AsyncFunctionResumeCallback resume_callbck;
     void *user_opaque;
 };
 
@@ -19022,6 +19023,11 @@ static void async_func_free(JSRuntime *rt, JSAsyncFunctionState *s)
     JS_FreeValueRT(rt, s->this_val);
 }
 
+void JS_SetAsyncFuncResumeCallback(JSContext *ctx, AsyncFunctionResumeCallback callback)
+{
+    ctx->resume_callbck = callback;
+}
+
 static JSValue async_func_resume(JSContext *ctx, JSAsyncFunctionState *s)
 {
     JSValue func_obj;
@@ -19030,9 +19036,16 @@ static JSValue async_func_resume(JSContext *ctx, JSAsyncFunctionState *s)
         return JS_ThrowStackOverflow(ctx);
 
     /* the tag does not matter provided it is not an object */
+    int ret_callback = 0;
     func_obj = JS_MKPTR(JS_TAG_INT, s);
-    return JS_CallInternal(ctx, func_obj, s->this_val, JS_UNDEFINED,
+    if (ctx->resume_callbck)
+        ret_callback = ctx->resume_callbck(ctx, 0);
+    JSValue ret_val = JS_CallInternal(ctx, func_obj, s->this_val, JS_UNDEFINED,
                            s->argc, s->frame.arg_buf, JS_CALL_FLAG_GENERATOR);
+    if (ctx->resume_callbck && ret_callback) {
+        ctx->resume_callbck(ctx, 1);
+    }
+    return ret_val;
 }
 
 

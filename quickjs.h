@@ -328,6 +328,10 @@ typedef struct JSMallocFunctions {
 
 typedef struct JSGCObjectHeader JSGCObjectHeader;
 
+typedef int(*AsyncFunctionResumeCallback)(JSContext* ctx, int stage);
+void JS_SetAsyncFuncResumeCallback(JSContext* ctx, AsyncFunctionResumeCallback callback);
+
+
 JSRuntime *JS_NewRuntime(void);
 /* info lifetime must exceed that of rt */
 void JS_SetRuntimeInfo(JSRuntime *rt, const char *info);
