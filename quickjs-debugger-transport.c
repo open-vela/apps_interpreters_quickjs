@@ -1,4 +1,3 @@
-#ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
 #include "quickjs-debugger.h"
 
 #include <sys/socket.h>
@@ -11,6 +10,8 @@
 #include <assert.h>
 #include <poll.h>
 #include <arpa/inet.h>
+
+#ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
 
 struct js_transport_data {
     int handle;

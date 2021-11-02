@@ -1,4 +1,3 @@
-#ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
 #include "quickjs-debugger.h"
 #include <stdlib.h>
 #include <string.h>
@@ -6,9 +5,9 @@
 #include <unistd.h>
 
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
+
 static void (* g_debugger_attach_notify)(JSContext* ctx, int type, void *udata) = NULL;
 static void* g_udata = NULL;
-#endif
 
 typedef struct DebuggerSuspendedState {
     uint32_t variable_reference_count;

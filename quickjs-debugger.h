@@ -1,4 +1,4 @@
-#ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
+
 #ifndef QUICKJS_DEBUGGER_H
 #define QUICKJS_DEBUGGER_H
 
@@ -114,5 +114,4 @@ JSValue js_debugger_evaluate(JSContext *ctx, int stack_index, JSValue expression
 }
 #endif
 
-#endif
 #endif
