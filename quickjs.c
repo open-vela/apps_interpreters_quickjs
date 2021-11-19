@@ -46456,10 +46456,12 @@ static JSValue promise_reaction_job(JSContext *ctx, int argc,
     JSValueConst handler, arg, func;
     JSValue res, res2;
     BOOL is_reject;
+    int ret_callback;
 
     assert(argc == 5);
     handler = argv[2];
     is_reject = JS_ToBool(ctx, argv[3]);
+    ret_callback = 0;
     arg = argv[4];
 #ifdef DUMP_PROMISE
     printf("promise_reaction_job: is_reject=%d\n", is_reject);
@@ -46472,7 +46474,11 @@ static JSValue promise_reaction_job(JSContext *ctx, int argc,
             res = JS_DupValue(ctx, arg);
         }
     } else {
+        if (ctx->resume_callbck)
+            ret_callback = ctx->resume_callbck(ctx, 0);
         res = JS_Call(ctx, handler, JS_UNDEFINED, 1, &arg);
+        if (ctx->resume_callbck && ret_callback)
+            ctx->resume_callbck(ctx, 1);
     }
     is_reject = JS_IsException(res);
     if (is_reject)
