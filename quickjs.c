@@ -21721,7 +21721,7 @@ static int cpool_add(JSParseState *s, JSValue val)
     return fd->cpool_count - 1;
 }
 
-static __exception int emit_push_const(JSParseState *s, JSValueConst val,
+static int emit_push_const(JSParseState *s, JSValueConst val,
                                        BOOL as_atom)
 {
     int idx;
