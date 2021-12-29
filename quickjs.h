@@ -329,7 +329,7 @@ typedef struct JSMallocFunctions {
 typedef struct JSGCObjectHeader JSGCObjectHeader;
 
 typedef int(*AsyncFunctionResumeCallback)(JSContext* ctx, int stage);
-void JS_SetAsyncFuncResumeCallback(JSContext* ctx, AsyncFunctionResumeCallback callback);
+void JS_SetAsyncFuncResumeCallback(JSContext *ctx, AsyncFunctionResumeCallback callback);
 
 
 JSRuntime *JS_NewRuntime(void);
@@ -648,9 +648,6 @@ static inline void JS_FreeValue(JSContext *ctx, JSValue v)
 {
     if (JS_VALUE_HAS_REF_COUNT(v)) {
         JSRefCountHeader *p = (JSRefCountHeader *)JS_VALUE_GET_PTR(v);
-        if (p == NULL) {
-            return;
-        }
         if (--p->ref_count <= 0) {
             __JS_FreeValue(ctx, v);
         }
@@ -766,7 +763,7 @@ JSValue JS_GetPrototype(JSContext *ctx, JSValueConst val);
 #define JS_GPN_PRIVATE_MASK (1 << 2)
 /* only include the enumerable properties */
 #define JS_GPN_ENUM_ONLY    (1 << 4)
-/* set theJSPropertyEnum.is_enumerable field */
+/* set the JSPropertyEnum.is_enumerable field */
 #define JS_GPN_SET_ENUM     (1 << 5)
 
 int JS_GetOwnPropertyNames(JSContext *ctx, JSPropertyEnum **ptab,
@@ -1051,6 +1048,7 @@ JSValueConst JS_GetModuleExport(JSContext *ctx, const JSModuleDef *m, const char
 int JS_CountModuleExport(JSContext *ctx, const JSModuleDef *m);
 JSAtom JS_GetModuleExportName(JSContext *ctx, const JSModuleDef *m, int idx);
 JSValueConst JS_GetModuleExportValue(JSContext *ctx, const JSModuleDef *m, int idx);
+JS_BOOL JS_GetModuleEvaluated(JSValue value);
 
 #undef js_unlikely
 #undef js_force_inline
