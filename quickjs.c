@@ -6359,9 +6359,6 @@ JSValue JS_Throw(JSContext *ctx, JSValue obj)
     JSRuntime *rt = ctx->rt;
     JS_FreeValue(ctx, rt->current_exception);
     rt->current_exception = obj;
-#ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
-    js_debugger_exception(ctx);
-#endif
     return JS_EXCEPTION;
 }
 
@@ -54335,11 +54332,15 @@ JSValue js_debugger_eval_bytecode_function(JSContext *ctx, JSValueConst this_obj
     JSVarRef **var_refs;
 
     JSObject *p;
-    assert(sf != NULL);
-    assert(JS_VALUE_GET_TAG(sf->cur_func) == JS_TAG_OBJECT);
-    p = JS_VALUE_GET_OBJ(sf->cur_func);
-    assert(js_class_has_bytecode(p->class_id));
-    var_refs = p->u.func.var_refs;
+    if(sf) {
+        assert(JS_VALUE_GET_TAG(sf->cur_func) == JS_TAG_OBJECT);
+        p = JS_VALUE_GET_OBJ(sf->cur_func);
+        assert(js_class_has_bytecode(p->class_id));
+        var_refs = p->u.func.var_refs;
+    } else {
+        var_refs = NULL;
+    }
+
     
     ret_val = JS_CallFree(ctx, js_closure(ctx, func_obj, var_refs, sf), this_obj, argc, argv);
     return ret_val;
@@ -54361,13 +54362,19 @@ JSValue js_debugger_eval(JSContext *ctx, JSValueConst this_obj, JSStackFrame *sf
     skip_shebang(s);
 
     JSObject *p;
-    assert(sf != NULL);
-    assert(JS_VALUE_GET_TAG(sf->cur_func) == JS_TAG_OBJECT);
-    p = JS_VALUE_GET_OBJ(sf->cur_func);
-    assert(js_class_has_bytecode(p->class_id));
-    b = p->u.func.function_bytecode;
-    var_refs = p->u.func.var_refs;
-    js_mode = b->js_mode;
+    if(sf) {
+        assert(JS_VALUE_GET_TAG(sf->cur_func) == JS_TAG_OBJECT);
+        p = JS_VALUE_GET_OBJ(sf->cur_func);
+        assert(js_class_has_bytecode(p->class_id));
+        b = p->u.func.function_bytecode;
+        var_refs = p->u.func.var_refs;
+        js_mode = b->js_mode;
+    } else {
+        p = NULL;
+        b = NULL;
+        var_refs = NULL;
+        js_mode = JS_MODE_STRICT;
+    }
 
     fd = js_new_function_def(ctx, NULL, TRUE, FALSE, filename, 1);
     if (!fd)
@@ -54375,10 +54382,10 @@ JSValue js_debugger_eval(JSContext *ctx, JSValueConst this_obj, JSStackFrame *sf
     s->cur_func = fd;
     fd->eval_type = JS_EVAL_TYPE_DIRECT;
     fd->has_this_binding = 0;
-    fd->new_target_allowed = b->new_target_allowed;
-    fd->super_call_allowed = b->super_call_allowed;
-    fd->super_allowed = b->super_allowed;
-    fd->arguments_allowed = b->arguments_allowed;
+    fd->new_target_allowed = b ? b->new_target_allowed : TRUE;
+    fd->super_call_allowed = b ? b->super_call_allowed : TRUE;
+    fd->super_allowed = b ? b->super_allowed : TRUE;
+    fd->arguments_allowed = b ? b->arguments_allowed : TRUE;
     fd->js_mode = js_mode;
     fd->func_name = JS_DupAtom(ctx, JS_ATOM__eval_);
     if (b) {

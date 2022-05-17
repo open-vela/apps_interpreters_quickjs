@@ -93,8 +93,9 @@ typedef void (*debugger_check)(JSContext* ctx, JSDebuggerInfo* info, const uint8
 struct JSDebuggerInfo {
     
     JSContext *ctx;                     /* the original context to be debugged */
+    JSContext *currCtx;                 /* current context */
     JSContext *debugging_ctx;           /* JSContext that is used to for the JSON transport and debugger state. */
-
+    int is_error_throwing;              /* if in throwing exception process */
     int is_debugging;                   /* the debugging flag, to prevent js_debugger_check reentrent */
     int is_paused;                      /* the pause flag */
     int exception_stop_state;           /* see JS_DEBUGGER_EXCEPTION_STOP_* */
@@ -117,7 +118,6 @@ struct JSDebuggerInfo {
 };
 
 void js_debugger_check(JSContext *ctx, const uint8_t *pc);
-void js_debugger_exception(JSContext* ctx);
 void js_debugger_free(JSRuntime *rt, JSDebuggerInfo *info);
 
 // begin internal api functions
@@ -230,7 +230,7 @@ int get_leb128(uint32_t *pval, const uint8_t *buf,
                       const uint8_t *buf_end);
 int get_sleb128(int32_t *pval, const uint8_t *buf,
                        const uint8_t *buf_end);
-int JS_GetOwnPropertyInternal(JSContext *ctx, JSPropertyDescriptor *desc, JSValue val, JSAtom prop);
+int JS_GetOwnPropertyInternal(JSContext *ctx, JSPropertyDescriptor *desc, JSObject* val, JSAtom prop);
 
 const char *get_func_name(JSContext *ctx, JSValueConst func);
 const uint8_t* js_debugger_get_curr_pc(JSContext *ctx);
