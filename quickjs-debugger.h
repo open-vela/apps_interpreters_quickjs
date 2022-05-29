@@ -103,7 +103,7 @@ struct JSDebuggerInfo {
     int stepping;                       /* the stepping type, see JS_DEBUGGER_STEP_* */
     JSDebuggerLocation step_over;       /* the step operation start location */
     int step_depth;                     /* the step operation start stack depth */
-
+    int  is_head_breakpoint;            /* Initial app.js head breakpoint */
     void* ws_peer;                      /* websocket peer */
     void* ws_server;                    /* websocket server instance ptr */
     int wait_connection;                /* wait websocket client connect flag */
