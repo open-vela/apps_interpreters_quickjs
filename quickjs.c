@@ -317,6 +317,7 @@ struct JSRuntime {
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
     struct JSDebuggerInfo debugger_info;
 #endif
+    JSOutOfMemoryTracker* oom_tracker;
 };
 
 struct JSClass {
@@ -6741,6 +6742,8 @@ JSValue JS_ThrowOutOfMemory(JSContext *ctx)
         rt->in_out_of_memory = TRUE;
         JS_ThrowInternalError(ctx, "out of memory");
         rt->in_out_of_memory = FALSE;
+        if(rt->oom_tracker)
+            rt->oom_tracker(ctx);
     }
     return JS_EXCEPTION;
 }
@@ -46513,6 +46516,12 @@ void JS_SetHostPromiseRejectionTracker(JSRuntime *rt,
     rt->host_promise_rejection_tracker = cb;
     rt->host_promise_rejection_tracker_opaque = opaque;
 }
+
+void JS_SetOutOfMemoryTracker(JSRuntime *rt, JSOutOfMemoryTracker *cb)
+{
+    rt->oom_tracker = cb;
+}
+
 
 static void fulfill_or_reject_promise(JSContext *ctx, JSValueConst promise,
                                       JSValueConst value, BOOL is_reject)
