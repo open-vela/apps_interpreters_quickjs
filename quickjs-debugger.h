@@ -108,7 +108,8 @@ struct JSDebuggerInfo {
     void* ws_server;                    /* websocket server instance ptr */
     int wait_connection;                /* wait websocket client connect flag */
     int force_pause;                    /* force pause the script running */
-
+    double start_time;                  /*cdp start timer */
+    char * package_name;
     struct {
         debugger_check cb_debugger_check;
         update_loaded_script_entries cb_update_loaded_script_entries;
