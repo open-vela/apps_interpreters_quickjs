@@ -19,6 +19,9 @@ void js_debugger_free(JSRuntime *rt, JSDebuggerInfo *info) {
         return;
     JS_FreeContext(info->debugging_ctx);
     info->debugging_ctx = NULL;
+    if(info->package_name)
+        free(info->package_name);
+    info->package_name = NULL;
 }
 
 #endif
