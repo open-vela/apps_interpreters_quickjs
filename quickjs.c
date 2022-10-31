@@ -24590,8 +24590,10 @@ static __exception int js_parse_postfix_expr(JSParseState *s, int parse_flags)
         return -1;
       {
         JSValue filename = JS_NewString(s->ctx, s->filename);
-        emit_push_const(s, filename, 0);
+        int ret = emit_push_const(s, filename, 0);
         JS_FreeValue(s->ctx, filename);
+        if(ret)
+            return -1;
       }
       break;
     case TOK___DIR__:
@@ -24605,8 +24607,10 @@ static __exception int js_parse_postfix_expr(JSParseState *s, int parse_flags)
           if (*pc == '?' || *pc == '#') break;
         }
         JSValue dir = n > 0 ? JS_NewStringLen(s->ctx, s->filename, n + 1) : JS_NewString(s->ctx, "");
-        emit_push_const(s, dir, 0);
+        int ret = emit_push_const(s, dir, 0);
         JS_FreeValue(s->ctx, dir);
+        if(ret)
+            return -1;
       }
       break;
     case TOK_IDENT:
