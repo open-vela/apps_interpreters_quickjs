@@ -1679,7 +1679,7 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
     rt->class_array[JS_CLASS_GENERATOR_FUNCTION].call = js_generator_function_call;
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
     rt->dump_memory_info.is_started_memory_tracking = 0;
-    rt->dump_memory_info.is_started_memory_tracking_on_timer = 0;
+    rt->dump_memory_info.is_memory_tracking_on_timer_started = 0;
 #endif
     if (init_shape_hash(rt))
         goto fail;
@@ -2370,8 +2370,8 @@ void JS_FreeContext(JSContext *ctx)
 
     list_del(&ctx->link);
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
-    if(rt->dump_memory_info.is_started_memory_tracking_on_timer){
-        CDP_rm_GC_obj(rt,&ctx->header);
+    if(rt->dump_memory_info.is_memory_tracking_on_timer_started){
+        CDP_remove_gc_obj(rt,&ctx->header);
     }
 #endif
     remove_gc_object(&ctx->header);
@@ -4470,8 +4470,8 @@ static void js_free_shape0(JSRuntime *rt, JSShape *sh)
         pr++;
     }
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
-    if(rt->dump_memory_info.is_started_memory_tracking_on_timer){
-        CDP_rm_GC_obj(rt,&sh->header);
+    if(rt->dump_memory_info.is_memory_tracking_on_timer_started){
+        CDP_remove_gc_obj(rt,&sh->header);
     }
 #endif
     remove_gc_object(&sh->header);
@@ -5285,8 +5285,8 @@ static void free_var_ref(JSRuntime *rt, JSVarRef *var_ref)
             if (var_ref->is_detached) {
                 JS_FreeValueRT(rt, var_ref->value);
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
-                if(rt->dump_memory_info.is_started_memory_tracking_on_timer){
-                    CDP_rm_GC_obj(rt,&var_ref->header);
+                if(rt->dump_memory_info.is_memory_tracking_on_timer_started){
+                    CDP_remove_gc_obj(rt,&var_ref->header);
                 }
 #endif
                 remove_gc_object(&var_ref->header);
@@ -5483,8 +5483,8 @@ static void free_object(JSRuntime *rt, JSObject *p)
     p->u.func.var_refs = NULL;
     p->u.func.home_object = NULL;
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
-    if(rt->dump_memory_info.is_started_memory_tracking_on_timer){
-        CDP_rm_GC_obj(rt,&p->header);
+    if(rt->dump_memory_info.is_memory_tracking_on_timer_started){
+        CDP_remove_gc_obj(rt,&p->header);
     }
 #endif
     remove_gc_object(&p->header);
@@ -5620,7 +5620,7 @@ static void add_gc_object(JSRuntime *rt, JSGCObjectHeader *h,
     h->gc_obj_type = type;
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
 //所有的gc对象创建都需要走这里
-if(rt->dump_memory_info.is_started_memory_tracking_on_timer){
+if(rt->dump_memory_info.is_memory_tracking_on_timer_started){
     CDP_get_stats_update_info(rt,h);
 }
 #endif
@@ -19270,8 +19270,8 @@ static void js_async_function_free0(JSRuntime *rt, JSAsyncFunctionData *s)
     JS_FreeValueRT(rt, s->resolving_funcs[0]);
     JS_FreeValueRT(rt, s->resolving_funcs[1]);
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
-    if(rt->dump_memory_info.is_started_memory_tracking_on_timer){
-        CDP_rm_GC_obj(rt,&s->header);
+    if(rt->dump_memory_info.is_memory_tracking_on_timer_started){
+        CDP_remove_gc_obj(rt,&s->header);
     }
 #endif
     remove_gc_object(&s->header);
@@ -32913,8 +32913,8 @@ static void free_function_bytecode(JSRuntime *rt, JSFunctionBytecode *b)
 #endif
     }
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
-    if(rt->dump_memory_info.is_started_memory_tracking_on_timer){
-        CDP_rm_GC_obj(rt,&b->header);
+    if(rt->dump_memory_info.is_memory_tracking_on_timer_started){
+        CDP_remove_gc_obj(rt,&b->header);
     }
 #endif
     remove_gc_object(&b->header);
@@ -55324,7 +55324,7 @@ void CDP_sacn_heap_in_memory(JSRuntime *rt){
     printf("CDP_sacn_heap_in_memory number is %d\n",count);
 }
 
-void CDP_get_GC_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,int64_t* count,int64_t* size){
+void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,int64_t* count,int64_t* size){
     JSMemoryUsage_helper hp;
     hp.js_func_code_size = 0;
     hp.js_func_pc2line_size = 0;

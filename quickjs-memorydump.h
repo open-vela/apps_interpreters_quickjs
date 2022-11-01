@@ -2,7 +2,6 @@
 #define QUICKJS_MEMORY_DUMP_H
 #include "quickjs.h"
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
-#include "list.h"
 #include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
@@ -102,7 +101,7 @@ typedef void (*CDP_GC_obj_change)(JSRuntime *rt, memory_object_id id,
 
 typedef struct DumpMemoryInfo {
   size_t is_started_memory_tracking;       /* Is heap object tracking enabled*/
-  int is_started_memory_tracking_on_timer; /* Track memory along a timeline */
+  int is_memory_tracking_on_timer_started; /* Track memory along a timeline */
   CDP_add_memory_object add_memory_object;
   CDP_add_memory_object_child_by_id add_memory_object_child_by_id;
   CDP_add_memory_object_size_by_id add_memory_object_size_by_id;
@@ -117,24 +116,36 @@ typedef struct Child_info {
   memory_object_id id;
   CDP_memory_str_val child_name;
 } Child_info;
-
+// Turn on engine memory tracking
 void CDP_start_memory_tracking(JSRuntime *rt);
+// Stop Engine Memory Tracking
 void CDP_stop_memory_tracking(JSRuntime *rt);
+// Get DumpMemoryInfo structure from rt
 struct DumpMemoryInfo *getDumpMemoryInfo(JSRuntime *rt);
+// Get the memory usage in the engine
 Macro_heap_info CDP_get_heap_usage(JSRuntime *rt);
+// Scan the memory objects in the engine and add them to the proxy tree
 void CDP_sacn_heap_in_memory(JSRuntime *rt);
+// Triggered when there are new objects in the engine
 void CDP_get_stats_update_info(JSRuntime *rt, JSGCObjectHeader *h);
-void CDP_rm_GC_obj(JSRuntime *rt, JSGCObjectHeader *h);
+// Triggered when the memory object in the engine is released
+void CDP_remove_gc_obj(JSRuntime *rt, JSGCObjectHeader *h);
+// Create Memory Object Name
 CDP_memory_str_val CDP_create_obj_name(const char *str, int len);
+// Get Memory Object Name
 CDP_memory_str_val CDP_get_obj_name(JSRuntime *rt, JSAtom atom);
+// Convert int to string
 char *CDP_int_to_string(int num, char *str, int radix);
+// Since the address of val may be a temporary address, you need to manually
+// create a val id
 memory_object_id CDP_get_val_id(JSRuntime *rt, const JSValueConst *val);
 // Insert children into the children of nodes in the proxy tree. These children
 // will be traversed in the subsequent gclist
 void CDP_add_proxies_obj_child(JSRuntime *rt, memory_object_id parent_id,
                                memory_object_id child_id,
                                CDP_memory_str_val *child_name);
-void CDP_get_GC_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,
+// Get the number and size of objects in the engine
+void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,
                                    int64_t *count, int64_t *size);
 
 #ifdef __cplusplus

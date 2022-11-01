@@ -53,11 +53,11 @@ void CDP_get_stats_update_info(JSRuntime *rt, JSGCObjectHeader *h) {
   int64_t count = 1;
   int64_t size = 1;
   memory_object_id id = (memory_object_id)h;
-  CDP_get_GC_obj_count_and_size(rt, h, &count, &size);
+  CDP_get_gc_obj_count_and_size(rt, h, &count, &size);
   getDumpMemoryInfo(rt)->GC_obj_change(rt, id, 1, size);
 }
 
-void CDP_rm_GC_obj(JSRuntime *rt, JSGCObjectHeader *h) {
+void CDP_remove_gc_obj(JSRuntime *rt, JSGCObjectHeader *h) {
   memory_object_id id = (memory_object_id)h;
   getDumpMemoryInfo(rt)->GC_obj_change(rt, id, 0, 0);
 }
