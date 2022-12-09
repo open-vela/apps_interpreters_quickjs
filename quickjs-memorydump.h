@@ -109,7 +109,6 @@ typedef struct DumpMemoryInfo {
   CDP_add_memory_object_type_by_id add_memory_object_type_by_id;
   CDP_add_memory_object_obj_name_by_id add_memory_object_obj_name_by_id;
   CDP_GC_obj_change GC_obj_change;
-  memory_object_id currnt_val_id;
 } DumpMemoryInfo;
 
 typedef struct Child_info {
@@ -138,7 +137,7 @@ CDP_memory_str_val CDP_get_obj_name(JSRuntime *rt, JSAtom atom);
 char *CDP_int_to_string(int num, char *str, int radix);
 // Since the address of val may be a temporary address, you need to manually
 // create a val id
-memory_object_id CDP_get_val_id(JSRuntime *rt, const JSValueConst *val);
+
 // Insert children into the children of nodes in the proxy tree. These children
 // will be traversed in the subsequent gclist
 void CDP_add_proxies_obj_child(JSRuntime *rt, memory_object_id parent_id,
@@ -148,6 +147,7 @@ void CDP_add_proxies_obj_child(JSRuntime *rt, memory_object_id parent_id,
 void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,
                                    int64_t *count, int64_t *size);
 
+int64_t getDumpMemoryId();
 #ifdef __cplusplus
 }
 #endif
