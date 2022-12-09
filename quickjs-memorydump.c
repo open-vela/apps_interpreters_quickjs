@@ -32,15 +32,10 @@ CDP_memory_str_val CDP_get_obj_name(JSRuntime *rt, JSAtom atom) {
   return name;
 }
 
-memory_object_id CDP_get_val_id(JSRuntime *rt, const JSValueConst *val) {
-  if(!val){
-    return ++getDumpMemoryInfo(rt)->currnt_val_id;
-  }
-  if (JS_VALUE_HAS_REF_COUNT(*val)) {
-    return (memory_object_id)JS_VALUE_GET_PTR(*val);
-  }
-  return ++getDumpMemoryInfo(rt)->currnt_val_id;
-}
+static int64_t memoryId = 200;
+int64_t getDumpMemoryId(){
+  return memoryId++;
+};
 
 void CDP_add_proxies_obj_child(JSRuntime *rt, memory_object_id parent_id,
                                memory_object_id child_id,
