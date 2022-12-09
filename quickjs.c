@@ -46514,12 +46514,10 @@ static JSValue promise_reaction_job(JSContext *ctx, int argc,
     JSValueConst handler, arg, func;
     JSValue res, res2;
     BOOL is_reject;
-    int ret_callback;
 
     assert(argc == 5);
     handler = argv[2];
     is_reject = JS_ToBool(ctx, argv[3]);
-    ret_callback = 0;
     arg = argv[4];
 #ifdef DUMP_PROMISE
     printf("promise_reaction_job: is_reject=%d\n", is_reject);
