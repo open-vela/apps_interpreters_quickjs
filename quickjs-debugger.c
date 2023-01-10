@@ -15,13 +15,13 @@ void js_debugger_check(JSContext* ctx, const uint8_t *cur_pc) {
 }
 
 void js_debugger_free(JSRuntime *rt, JSDebuggerInfo *info) {
+    if(info->package_name)
+        free(info->package_name);
+    info->package_name = NULL;
     if(!info->debugging_ctx)
         return;
     JS_FreeContext(info->debugging_ctx);
     info->debugging_ctx = NULL;
-    if(info->package_name)
-        free(info->package_name);
-    info->package_name = NULL;
 }
 
 #endif
