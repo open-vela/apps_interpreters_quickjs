@@ -1046,12 +1046,25 @@ int JS_SetModuleExport(JSContext *ctx, JSModuleDef *m, const char *export_name,
 int JS_SetModuleExportList(JSContext *ctx, JSModuleDef *m,
                            const JSCFunctionListEntry *tab, int len);
 
-/* Extendsion API */
+// QUICKAPP ADD BEGIN
+#if !defined(EMSCRIPTEN)
+#define CONFIG_ATOMICS
+#endif
+enum {
+    __JS_ATOM_NULL = JS_ATOM_NULL,
+#define DEF(name, str) JS_ATOM_ ## name,
+#include "quickjs-atom.h"
+#undef DEF
+    JS_ATOM_END,
+};
 JSValueConst JS_GetModuleExport(JSContext *ctx, const JSModuleDef *m, const char *export_name);
 int JS_CountModuleExport(JSContext *ctx, const JSModuleDef *m);
 JSAtom JS_GetModuleExportName(JSContext *ctx, const JSModuleDef *m, int idx);
 JSValueConst JS_GetModuleExportValue(JSContext *ctx, const JSModuleDef *m, int idx);
 JS_BOOL JS_GetModuleEvaluated(JSValue value);
+JS_BOOL JS_IsSameValue(JSContext *ctx, JSValueConst op1, JSValueConst op2);
+void JS_SetNativeProxyClassId(JSClassID class_id);
+// QUICKAPP END
 
 #undef js_unlikely
 #undef js_force_inline

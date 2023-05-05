@@ -81,9 +81,13 @@
 
 /* define to include Atomics.* operations which depend on the OS
    threads */
+// QUICKAPP DEL BEGIN
+/*
 #if !defined(EMSCRIPTEN)
 #define CONFIG_ATOMICS
 #endif
+*/
+// END
 
 #if !defined(EMSCRIPTEN)
 /* enable stack limitation */
@@ -1101,6 +1105,8 @@ struct JSObject {
     /* byte sizes: 40/48/72 */
 };
 
+// QUICKAPP DEL BEGIN
+/*
 enum {
     __JS_ATOM_NULL = JS_ATOM_NULL,
 #define DEF(name, str) JS_ATOM_ ## name,
@@ -1108,6 +1114,8 @@ enum {
 #undef DEF
     JS_ATOM_END,
 };
+*/
+// END
 #define JS_ATOM_LAST_KEYWORD JS_ATOM_super
 #define JS_ATOM_LAST_STRICT_KEYWORD JS_ATOM_yield
 
@@ -1309,6 +1317,11 @@ static JSValue JS_ThrowTypeErrorRevokedProxy(JSContext *ctx);
 static JSValue js_proxy_getPrototypeOf(JSContext *ctx, JSValueConst obj);
 static int js_proxy_setPrototypeOf(JSContext *ctx, JSValueConst obj,
                                    JSValueConst proto_val, BOOL throw_flag);
+// QUICKAPP ADD BEGIN
+static JSValue js_native_proxy_getPrototypeOf(JSContext *ctx, JSValueConst obj);
+static int js_native_proxy_isArray(JSContext *ctx, JSValueConst obj);
+static JSClassID JS_CLASS_NATIVE_PROXY = 0;
+// END
 static int js_proxy_isExtensible(JSContext *ctx, JSValueConst obj);
 static int js_proxy_preventExtensions(JSContext *ctx, JSValueConst obj);
 static int js_proxy_isArray(JSContext *ctx, JSValueConst obj);
@@ -7368,7 +7381,11 @@ JSValue JS_GetPrototype(JSContext *ctx, JSValueConst obj)
     if (JS_VALUE_GET_TAG(obj) == JS_TAG_OBJECT) {
         JSObject *p;
         p = JS_VALUE_GET_OBJ(obj);
-        if (unlikely(p->class_id == JS_CLASS_PROXY)) {
+        // QUICKAPP ADD BEGIN
+        if (unlikely(p->class_id == JS_CLASS_NATIVE_PROXY)) {
+          val = js_native_proxy_getPrototypeOf(ctx, obj);
+          // END
+        } else if (unlikely(p->class_id == JS_CLASS_PROXY)) {
             val = js_proxy_getPrototypeOf(ctx, obj);
         } else {
             p = p->shape->proto;
@@ -7423,8 +7440,11 @@ static int JS_OrdinaryIsInstanceOf(JSContext *ctx, JSValueConst val,
     for(;;) {
         proto1 = p->shape->proto;
         if (!proto1) {
+            // QUICKAPP MODIFY
             /* slow case if proxy in the prototype chain */
-            if (unlikely(p->class_id == JS_CLASS_PROXY)) {
+            //if (unlikely(p->class_id == JS_CLASS_PROXY)) {
+            if (unlikely(p->class_id == JS_CLASS_PROXY ||
+                         p->class_id == JS_CLASS_NATIVE_PROXY)) {
                 JSValue obj1;
                 obj1 = JS_DupValue(ctx, JS_MKPTR(JS_TAG_OBJECT, (JSObject *)p));
                 for(;;) {
@@ -12423,6 +12443,10 @@ int JS_IsArray(JSContext *ctx, JSValueConst val)
     JSObject *p;
     if (JS_VALUE_GET_TAG(val) == JS_TAG_OBJECT) {
         p = JS_VALUE_GET_OBJ(val);
+        // QUICKAPP ADD BEGIN
+        if (unlikely(p->class_id == JS_CLASS_NATIVE_PROXY))
+            return js_native_proxy_isArray(ctx, val);
+        // END
         if (unlikely(p->class_id == JS_CLASS_PROXY))
             return js_proxy_isArray(ctx, val);
         else
@@ -54657,6 +54681,33 @@ BOOL JS_GetModuleEvaluated(JSValue value) {
     return FALSE;
 }
 
+// QUICKAPP ADD BEGIN
+static int js_native_proxy_isArray(JSContext *ctx, JSValueConst obj)
+{
+  JSProxyData *s = JS_GetOpaque(obj, JS_CLASS_NATIVE_PROXY);
+  if (!s)
+    return FALSE;
+  return JS_IsArray(ctx, s->target);
+}
+
+static JSValue js_native_proxy_getPrototypeOf(JSContext *ctx, JSValueConst obj)
+{
+  JSProxyData* s = JS_GetOpaque(obj, JS_CLASS_NATIVE_PROXY);
+  if (!s)
+    return JS_EXCEPTION;
+
+  return JS_GetPrototype(ctx, s->target);
+}
+
+JS_BOOL JS_IsSameValue(JSContext *ctx, JSValueConst op1, JSValueConst op2) {
+   return js_same_value(ctx, op1, op2);
+}
+
+void JS_SetNativeProxyClassId(JSClassID class_id) {
+  JS_CLASS_NATIVE_PROXY = class_id;
+}
+// QUICKAPP END
+
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
 JSDebuggerLocation js_debugger_current_location(JSContext *ctx, const uint8_t *cur_pc) {
     JSDebuggerLocation location;
@@ -54739,6 +54790,8 @@ const char* js_debugger_get_subtype_name(JSContext *ctx, JSValue value) {
             return "error";
         } else if(p->class_id == JS_CLASS_PROXY) {
             return "proxy";
+        } else  if (p->class_id == JS_CLASS_NATIVE_PROXY) {
+            return "nativeproxy";
         } else if(p->class_id == JS_CLASS_PROMISE) {
             return "promise";
         } else if(p->class_id == JS_CLASS_INT8_ARRAY || p->class_id == JS_CLASS_INT16_ARRAY ||
