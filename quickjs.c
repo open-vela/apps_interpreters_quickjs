@@ -94,6 +94,9 @@
 #define CONFIG_STACK_CHECK
 #endif
 
+#ifdef __BYTECODE_OPTIMIZATION__
+int _g_const_atom_count = 0;
+#endif
 
 /* dump object free */
 //#define DUMP_FREE
@@ -1839,6 +1842,10 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
 
     rt->current_exception = JS_NULL;
 
+#ifdef __BYTECODE_OPTIMIZATION__
+    _g_const_atom_count = JS_ATOM_END > _g_const_atom_count ? JS_ATOM_END : _g_const_atom_count;
+#endif
+
     return rt;
  fail:
     JS_FreeRuntime(rt);
@@ -2593,7 +2600,11 @@ static inline BOOL __JS_AtomIsConst(JSAtom v)
 #if defined(DUMP_LEAKS) && DUMP_LEAKS > 1
         return (int32_t)v <= 0;
 #else
+#ifdef __BYTECODE_OPTIMIZATION__
+    return (int32_t)v < _g_const_atom_count;
+#else
         return (int32_t)v < JS_ATOM_END;
+#endif
 #endif
 }
 
@@ -3128,6 +3139,10 @@ static void JS_FreeAtomStruct(JSRuntime *rt, JSAtomStruct *p)
 
 static void __JS_FreeAtom(JSRuntime *rt, uint32_t i)
 {
+#ifdef __BYTECODE_OPTIMIZATION__
+    if (i < _g_const_atom_count)
+        return;
+#endif
     JSAtomStruct *p;
 
     p = rt->atom_array[i];
@@ -55960,4 +55975,8 @@ void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,int64_t* 
     *size+= hp.js_func_size;
 }
 
+#endif
+
+#ifdef __BYTECODE_OPTIMIZATION__
+#include "bytecode_func.c"
 #endif
