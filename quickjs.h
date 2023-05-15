@@ -1066,6 +1066,20 @@ JS_BOOL JS_IsSameValue(JSContext *ctx, JSValueConst op1, JSValueConst op2);
 void JS_SetNativeProxyClassId(JSClassID class_id);
 // QUICKAPP END
 
+#define __BYTECODE_OPTIMIZATION__
+
+/* Extension API for ByteCode Optimization*/
+#ifdef __BYTECODE_OPTIMIZATION__
+
+JSRuntime *JS_NewRuntime_Ex(const uint8_t *rt_str_info);
+void JS_FreeRuntime_Ex(JSRuntime *rt);
+JSValue JS_ReadObject_Ex(JSContext *ctx, const uint8_t *buf, size_t buf_len,
+                         int flags);
+uint8_t *JS_WriteObject_Ex(JSContext *ctx, size_t *psize, JSValueConst obj,
+                           int flags);
+char *save_atom_array(JSRuntime *rt, size_t *psize);
+#endif
+
 #undef js_unlikely
 #undef js_force_inline
 
