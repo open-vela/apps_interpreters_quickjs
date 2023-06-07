@@ -94,9 +94,6 @@
 #define CONFIG_STACK_CHECK
 #endif
 
-#ifdef __BYTECODE_OPTIMIZATION__
-int _g_const_atom_count = 0;
-#endif
 
 /* dump object free */
 //#define DUMP_FREE
@@ -432,6 +429,10 @@ struct JSRuntime {
     vector* newObjVector;
     JSContext* currentCtx;
     char* pageStatus;
+#endif
+#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
+    int32_t const_atom_count;
+    uint8_t* const_jsstring_buffer;
 #endif
 };
 #ifdef CONFIG_MEMORY_LEAK_TRACK
@@ -1842,9 +1843,6 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
 
     rt->current_exception = JS_NULL;
 
-#ifdef __BYTECODE_OPTIMIZATION__
-    _g_const_atom_count = JS_ATOM_END > _g_const_atom_count ? JS_ATOM_END : _g_const_atom_count;
-#endif
 
     return rt;
  fail:
@@ -2200,7 +2198,11 @@ void JS_FreeRuntime(JSRuntime *rt)
         for(i = 0; i < rt->atom_size; i++) {
             JSAtomStruct *p = rt->atom_array[i];
             if (!atom_is_free(p) /* && p->str*/) {
-                if (i >= JS_ATOM_END || p->header.ref_count != 1) {
+                int const_atom_count = JS_ATOM_END;
+#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
+                const_atom_count = rt->const_atom_count;
+#endif
+                if (i >= const_atom_count || p->header.ref_count != 1) {
                     if (!header_done) {
                         header_done = TRUE;
                         if (rt->rt_info) {
@@ -2257,9 +2259,21 @@ void JS_FreeRuntime(JSRuntime *rt)
 #ifdef DUMP_LEAKS
             list_del(&p->link);
 #endif
+#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
+            if(i < rt->const_atom_count) {
+                continue;
+            }
+#endif
             js_free_rt(rt, p);
         }
     }
+
+#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
+    // 释放字节码优化块
+    if(rt->const_jsstring_buffer) {
+        js_free_rt(rt, rt->const_jsstring_buffer);
+    }
+#endif
     js_free_rt(rt, rt->atom_array);
     js_free_rt(rt, rt->atom_hash);
     js_free_rt(rt, rt->shape_hash);
@@ -2600,11 +2614,18 @@ static inline BOOL __JS_AtomIsConst(JSAtom v)
 #if defined(DUMP_LEAKS) && DUMP_LEAKS > 1
         return (int32_t)v <= 0;
 #else
-#ifdef __BYTECODE_OPTIMIZATION__
-    return (int32_t)v < _g_const_atom_count;
-#else
         return (int32_t)v < JS_ATOM_END;
 #endif
+}
+
+static inline BOOL __JS_AtomIsConst_Ex(JSRuntime* rt, JSAtom v)
+{
+#ifndef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
+    return __JS_AtomIsConst(v);
+#elif defined(DUMP_LEAKS) && DUMP_LEAKS > 1
+    return (int32_t)v <= 0;
+#else
+    return (int32_t)v < rt->const_atom_count;
 #endif
 }
 
@@ -2828,7 +2849,7 @@ static JSAtom JS_DupAtomRT(JSRuntime *rt, JSAtom v)
 {
     JSAtomStruct *p;
 
-    if (!__JS_AtomIsConst(v)) {
+    if (!__JS_AtomIsConst_Ex(rt, v)) {
         p = rt->atom_array[v];
         p->header.ref_count++;
     }
@@ -2840,7 +2861,7 @@ JSAtom JS_DupAtom(JSContext *ctx, JSAtom v)
     JSRuntime *rt;
     JSAtomStruct *p;
 
-    if (!__JS_AtomIsConst(v)) {
+    if (!__JS_AtomIsConst_Ex(ctx->rt, v)) {
         rt = ctx->rt;
         p = rt->atom_array[v];
         p->header.ref_count++;
@@ -2915,7 +2936,7 @@ static JSAtom __JS_NewAtom(JSRuntime *rt, JSString *str, int atom_type)
             /* str is the atom, return its index */
             i = js_get_atom_index(rt, str);
             /* reduce string refcount and increase atom's unless constant */
-            if (__JS_AtomIsConst(i))
+            if (__JS_AtomIsConst_Ex(rt, i))
                 str->header.ref_count--;
             return i;
         }
@@ -2931,7 +2952,7 @@ static JSAtom __JS_NewAtom(JSRuntime *rt, JSString *str, int atom_type)
                 p->atom_type == atom_type &&
                 p->len == len &&
                 js_string_memcmp(p, str, len) == 0) {
-                if (!__JS_AtomIsConst(i))
+                if (!__JS_AtomIsConst_Ex(rt, i))
                     p->header.ref_count++;
                 goto done;
             }
@@ -3085,7 +3106,7 @@ static JSAtom __JS_FindAtom(JSRuntime *rt, const char *str, size_t len,
             p->len == len &&
             p->is_wide_char == 0 &&
             memcmp(p->u.str8, str, len) == 0) {
-            if (!__JS_AtomIsConst(i))
+            if (!__JS_AtomIsConst_Ex(rt, i))
                 p->header.ref_count++;
             return i;
         }
@@ -3139,8 +3160,8 @@ static void JS_FreeAtomStruct(JSRuntime *rt, JSAtomStruct *p)
 
 static void __JS_FreeAtom(JSRuntime *rt, uint32_t i)
 {
-#ifdef __BYTECODE_OPTIMIZATION__
-    if (i < _g_const_atom_count)
+#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
+    if (i < rt->const_atom_count)
         return;
 #endif
     JSAtomStruct *p;
@@ -3462,13 +3483,13 @@ STATIC int JS_AtomIsNumericIndex(JSContext *ctx, JSAtom atom)
 
 void JS_FreeAtom(JSContext *ctx, JSAtom v)
 {
-    if (!__JS_AtomIsConst(v))
+    if (!__JS_AtomIsConst_Ex(ctx->rt, v))
         __JS_FreeAtom(ctx->rt, v);
 }
 
 void JS_FreeAtomRT(JSRuntime *rt, JSAtom v)
 {
-    if (!__JS_AtomIsConst(v))
+    if (!__JS_AtomIsConst_Ex(rt, v))
         __JS_FreeAtom(rt, v);
 }
 
@@ -34535,6 +34556,7 @@ typedef enum BCTagEnum {
 #else
 #define BC_VERSION BC_BASE_VERSION
 #endif
+#define BC_OPTIMIZED_VERSION (1 << 7)
 
 typedef struct BCWriterState {
     JSContext *ctx;
@@ -34554,6 +34576,7 @@ typedef struct BCWriterState {
     int sab_tab_size;
     /* list of referenced objects (used if allow_reference = TRUE) */
     JSObjectList object_list;
+    uint8_t optimized_bc;
 } BCWriterState;
 
 #ifdef DUMP_READ_OBJECT
@@ -34672,9 +34695,14 @@ static int bc_put_atom(BCWriterState *s, JSAtom atom)
     if (__JS_AtomIsTaggedInt(atom)) {
         v = (__JS_AtomToUInt32(atom) << 1) | 1;
     } else {
-        if (bc_atom_to_idx(s, &v, atom))
-            return -1;
-        v <<= 1;
+        if (s->optimized_bc) {
+            v = atom;
+            v <<= 1;
+        } else {    
+            if (bc_atom_to_idx(s, &v, atom))
+                return -1;
+            v <<= 1;
+        }
     }
     bc_put_leb128(s, v);
     return 0;
@@ -34753,25 +34781,27 @@ static int JS_WriteFunctionBytecode(BCWriterState *s,
         return -1;
     memcpy(bc_buf, bc_buf1, bc_len);
 
-    pos = 0;
-    while (pos < bc_len) {
-        op = bc_buf[pos];
-        len = short_opcode_info(op).size;
-        switch(short_opcode_info(op).fmt) {
-        case OP_FMT_atom:
-        case OP_FMT_atom_u8:
-        case OP_FMT_atom_u16:
-        case OP_FMT_atom_label_u8:
-        case OP_FMT_atom_label_u16:
-            atom = get_u32(bc_buf + pos + 1);
-            if (bc_atom_to_idx(s, &val, atom))
-                goto fail;
-            put_u32(bc_buf + pos + 1, val);
-            break;
-        default:
-            break;
+    if(!s->optimized_bc) {
+        pos = 0;
+        while (pos < bc_len) {
+            op = bc_buf[pos];
+            len = short_opcode_info(op).size;
+            switch(short_opcode_info(op).fmt) {
+            case OP_FMT_atom:
+            case OP_FMT_atom_u8:
+            case OP_FMT_atom_u16:
+            case OP_FMT_atom_label_u8:
+            case OP_FMT_atom_label_u16:
+                atom = get_u32(bc_buf + pos + 1);
+                if (bc_atom_to_idx(s, &val, atom))
+                    goto fail;
+                put_u32(bc_buf + pos + 1, val);
+                break;
+            default:
+                break;
+            }
+            pos += len;
         }
-        pos += len;
     }
 
     if (s->byte_swap)
@@ -35346,12 +35376,17 @@ static int JS_WriteObjectAtoms(BCWriterState *s)
     version = BC_VERSION;
     if (s->byte_swap)
         version ^= BC_BE_VERSION;
+    if(s->optimized_bc) {
+        version |= BC_OPTIMIZED_VERSION;
+    }
     bc_put_u8(s, version);
 
-    bc_put_leb128(s, s->idx_to_atom_count);
-    for(i = 0; i < s->idx_to_atom_count; i++) {
-        JSAtomStruct *p = rt->atom_array[s->idx_to_atom[i]];
-        JS_WriteString(s, p);
+    if(!s->optimized_bc) {
+        bc_put_leb128(s, s->idx_to_atom_count);
+        for(i = 0; i < s->idx_to_atom_count; i++) {
+            JSAtomStruct *p = rt->atom_array[s->idx_to_atom[i]];
+            JS_WriteString(s, p);
+        }
     }
     /* XXX: should check for OOM in above phase */
 
@@ -35384,6 +35419,7 @@ uint8_t *JS_WriteObject2(JSContext *ctx, size_t *psize, JSValueConst obj,
     s->allow_bytecode = ((flags & JS_WRITE_OBJ_BYTECODE) != 0);
     s->allow_sab = ((flags & JS_WRITE_OBJ_SAB) != 0);
     s->allow_reference = ((flags & JS_WRITE_OBJ_REFERENCE) != 0);
+    s->optimized_bc = ((flags & JS_WRITE_OBJ_BYTECODE_OPTIMIZED) != 0);
     /* XXX: could use a different version when bytecode is included */
     if (s->allow_bytecode)
         s->first_atom = JS_ATOM_END;
@@ -35444,6 +35480,7 @@ typedef struct BCReaderState {
     const uint8_t *ptr_last;
     int level;
 #endif
+    uint8_t optimized_bc;
 } BCReaderState;
 
 #ifdef DUMP_READ_OBJECT
@@ -35611,6 +35648,10 @@ static int bc_get_atom(BCReaderState *s, JSAtom *patom)
         *patom = __JS_AtomFromUInt32(v >> 1);
         return 0;
     } else {
+        if(s->optimized_bc) {
+            *patom = v >> 1;
+            return 0;
+        }
         return bc_idx_to_atom(s, patom, v >> 1);
     }
 }
@@ -35677,7 +35718,9 @@ static int JS_ReadFunctionBytecode(BCReaderState *s, JSFunctionBytecode *b,
             return -1;
     }
     b->byte_code_buf = bc_buf;
-
+    if(s->optimized_bc) {
+        return 0;
+    }
     pos = 0;
     while (pos < bc_len) {
         op = bc_buf[pos];
@@ -36511,9 +36554,20 @@ static int JS_ReadObjectAtoms(BCReaderState *s)
         return -1;
     /* XXX: could support byte swapped input */
     if (v8 != BC_VERSION) {
-        JS_ThrowSyntaxError(s->ctx, "invalid version (%d expected=%d)",
+        if(s->optimized_bc) {
+            if(v8 != (BC_VERSION | BC_OPTIMIZED_VERSION)) {
+                JS_ThrowSyntaxError(s->ctx, "invalid version (%d expected=%d)",
+                            v8, (BC_VERSION | BC_OPTIMIZED_VERSION));
+                return -1;
+            }
+        } else {
+            JS_ThrowSyntaxError(s->ctx, "invalid version (%d expected=%d)",
                             v8, BC_VERSION);
-        return -1;
+            return -1;
+        }
+    }
+    if(s->optimized_bc) {
+        return 0;
     }
     if (bc_get_leb128(s, &s->idx_to_atom_count))
         return -1;
@@ -36575,6 +36629,7 @@ JSValue JS_ReadObject(JSContext *ctx, const uint8_t *buf, size_t buf_len,
         s->first_atom = JS_ATOM_END;
     else
         s->first_atom = 1;
+    s->optimized_bc = ((flags & JS_READ_OBJ_BYTECODE_OPTIMIZED ) != 0);
     if (JS_ReadObjectAtoms(s)) {
         obj = JS_EXCEPTION;
     } else {
@@ -55977,9 +56032,7 @@ void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,int64_t* 
 
 #endif
 
-#ifdef __BYTECODE_OPTIMIZATION__
 #include "bytecode_func.c"
-#endif
 
 #ifdef QUICKJS_CONFIG_TOOL
 // 关闭优化
