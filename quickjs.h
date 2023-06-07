@@ -888,6 +888,7 @@ int JS_ExecutePendingJob(JSRuntime *rt, JSContext **pctx);
 #define JS_WRITE_OBJ_REFERENCE (1 << 3) /* allow object references to
                                            encode arbitrary object
                                            graph */
+#define JS_WRITE_OBJ_BYTECODE_OPTIMIZED (1 << 4) /* adopt optimized bytecode flow */
 uint8_t *JS_WriteObject(JSContext *ctx, size_t *psize, JSValueConst obj,
                         int flags);
 uint8_t *JS_WriteObject2(JSContext *ctx, size_t *psize, JSValueConst obj,
@@ -897,6 +898,7 @@ uint8_t *JS_WriteObject2(JSContext *ctx, size_t *psize, JSValueConst obj,
 #define JS_READ_OBJ_ROM_DATA  (1 << 1) /* avoid duplicating 'buf' data */
 #define JS_READ_OBJ_SAB       (1 << 2) /* allow SharedArrayBuffer */
 #define JS_READ_OBJ_REFERENCE (1 << 3) /* allow object references */
+#define JS_READ_OBJ_BYTECODE_OPTIMIZED (1 << 4) /* adopt optimized bytecode flow */
 JSValue JS_ReadObject(JSContext *ctx, const uint8_t *buf, size_t buf_len,
                       int flags);
 /* instantiate and evaluate a bytecode function. Only used when
@@ -1066,19 +1068,11 @@ JS_BOOL JS_IsSameValue(JSContext *ctx, JSValueConst op1, JSValueConst op2);
 void JS_SetNativeProxyClassId(JSClassID class_id);
 // QUICKAPP END
 
-#define __BYTECODE_OPTIMIZATION__
-
 /* Extension API for ByteCode Optimization*/
-#ifdef __BYTECODE_OPTIMIZATION__
-
+#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
 JSRuntime *JS_NewRuntime_Ex(const uint8_t *rt_str_info);
-void JS_FreeRuntime_Ex(JSRuntime *rt);
-JSValue JS_ReadObject_Ex(JSContext *ctx, const uint8_t *buf, size_t buf_len,
-                         int flags);
-uint8_t *JS_WriteObject_Ex(JSContext *ctx, size_t *psize, JSValueConst obj,
-                           int flags);
-char *save_atom_array(JSRuntime *rt, size_t *psize);
 #endif
+char *save_atom_array(JSRuntime *rt, size_t *psize);
 
 /* Extension API for config tool*/
 #ifdef QUICKJS_CONFIG_TOOL
