@@ -55980,3 +55980,7 @@ void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,int64_t* 
 #ifdef __BYTECODE_OPTIMIZATION__
 #include "bytecode_func.c"
 #endif
+
+#ifdef __GENERATE_HEAP_FILE__
+#include "./heap/write-heap.c"
+#endif
