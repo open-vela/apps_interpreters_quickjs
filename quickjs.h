@@ -1068,6 +1068,11 @@ JS_BOOL JS_IsSameValue(JSContext *ctx, JSValueConst op1, JSValueConst op2);
 void JS_SetNativeProxyClassId(JSClassID class_id);
 // QUICKAPP END
 
+#if defined(__NuttX__) && defined(QUICKJS_CONFIG_TOOL)
+void qjs_set_log_fd(FILE *fp);
+void qjs_reset_log_fd(void);
+#endif
+
 /* Extension API for ByteCode Optimization*/
 #ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
 JSRuntime *JS_NewRuntime_Ex(const uint8_t *rt_str_info);
@@ -1078,6 +1083,7 @@ char *save_atom_array(JSRuntime *rt, size_t *psize);
 #ifdef QUICKJS_CONFIG_TOOL
 void write_heap_to_file(JSRuntime *rt);
 void dump_memory_usage(JSRuntime *rt, FILE *fp);
+void dump_objects(JSRuntime *rt);
 #endif
 
 #undef js_unlikely

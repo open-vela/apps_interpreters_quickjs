@@ -253,4 +253,4 @@ _write_data_buffer_type_function(uint64_t);
   function(heap_ctx_, addr);                                                   \
   ppdi->buffer_size = _get_data_buffer_offset(heap_ctx_) - ppdi->buffer_size;
 
-#endif
+#endif //QUICKJS_QUICKJS_HELPER_H
