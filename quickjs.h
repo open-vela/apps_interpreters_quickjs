@@ -1080,9 +1080,8 @@ uint8_t *JS_WriteObject_Ex(JSContext *ctx, size_t *psize, JSValueConst obj,
 char *save_atom_array(JSRuntime *rt, size_t *psize);
 #endif
 
-/* Extension API for generate heap file*/
-// #define __GENERATE_HEAP_FILE__
-#ifdef __GENERATE_HEAP_FILE__
+/* Extension API for config tool*/
+#ifdef QUICKJS_CONFIG_TOOL
 void write_heap_to_file(JSRuntime *rt);
 void dump_memory_usage(JSRuntime *rt, FILE *fp);
 #endif
