@@ -131,6 +131,37 @@
 #include <errno.h>
 #endif
 
+#if defined(__NuttX__) && defined(QUICKJS_CONFIG_TOOL)
+#include <syslog.h>
+#define printf(...) qjs_log(__VA_ARGS__)
+#define putchar(c) qjs_log("%c", c)
+
+FILE *__qjs_log_fd__ = NULL;
+
+int qjs_log(const char *fmt, ...)
+{
+  va_list ap;
+  va_start(ap, fmt);
+  if (__qjs_log_fd__ == NULL) {
+    syslog(LOG_ERR, fmt, ap);
+  } else {
+    vfprintf(__qjs_log_fd__, fmt, ap);
+  }
+  va_end(ap);
+  return 0;
+}
+
+void qjs_set_log_fd(FILE *fd)
+{
+    __qjs_log_fd__ = fd;
+}
+
+void qjs_reset_log_fd(void) {
+    __qjs_log_fd__ = NULL;
+}
+
+#endif // __NuttX__
+
 enum {
     /* classid tag        */    /* union usage   | properties */
     JS_CLASS_OBJECT = 1,        /* must be first */
@@ -56043,4 +56074,9 @@ void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,int64_t* 
 #pragma GCC optimize ("O0")
 #include "./heap/write-heap.c"
 #pragma GCC pop_options
+#endif
+
+#if defined(__NuttX__) && defined(QUICKJS_CONFIG_TOOL)
+#undef printf
+#undef putchar
 #endif

@@ -469,3 +469,19 @@ void write_heap_to_file(JSRuntime *rt) {
 
   dump_memory_usage(rt, stdout);
 }
+
+void dump_objects(JSRuntime *rt) {
+  JS_DumpAtoms(rt);
+  JS_DumpShapes(rt);
+  {
+    struct list_head *el;
+    JSGCObjectHeader *p;
+    printf("JSObjects: {\n");
+    JS_DumpObjectHeader(rt);
+    list_for_each(el, &rt->gc_obj_list) {
+      p = list_entry(el, JSGCObjectHeader, link);
+      JS_DumpGCObject(rt, p);
+    }
+    printf("}\n");
+  }
+}
