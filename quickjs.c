@@ -55981,6 +55981,10 @@ void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,int64_t* 
 #include "bytecode_func.c"
 #endif
 
-#ifdef __GENERATE_HEAP_FILE__
+#ifdef QUICKJS_CONFIG_TOOL
+// 关闭优化
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
 #include "./heap/write-heap.c"
+#pragma GCC pop_options
 #endif
