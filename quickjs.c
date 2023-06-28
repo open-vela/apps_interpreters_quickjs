@@ -1843,6 +1843,9 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
 
     rt->current_exception = JS_NULL;
 
+#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
+    rt->const_atom_count = JS_ATOM_END;
+#endif
 
     return rt;
  fail:
