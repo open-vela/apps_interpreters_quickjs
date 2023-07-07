@@ -252,6 +252,16 @@ DEF(SyntaxError, "SyntaxError")
 DEF(TypeError, "TypeError")
 DEF(URIError, "URIError")
 DEF(InternalError, "InternalError")
+// QUICKAPP ADD BEGIN
+DEF(push, "push")
+DEF(pop, "pop")
+DEF(shift, "shift")
+DEF(unshift, "unshift")
+DEF(splice, "splice")
+DEF(includes, "includes")
+DEF(indexOf, "indexOf")
+DEF(lastIndexOf, "lastIndexOf")
+// END
 /* private symbols */
 DEF(Private_brand, "<brand>")
 /* symbols */
@@ -271,15 +281,6 @@ DEF(Symbol_asyncIterator, "Symbol.asyncIterator")
 #ifdef CONFIG_BIGNUM
 DEF(Symbol_operatorSet, "Symbol.operatorSet")
 #endif
-// QUICKAPP ADD BEGIN
-DEF(push, "push")
-DEF(pop, "pop")
-DEF(shift, "shift")
-DEF(unshift, "unshift")
-DEF(splice, "splice")
-DEF(includes, "includes")
-DEF(indexOf, "indexOf")
-DEF(lastIndexOf, "lastIndexOf")
-// END
+
 
 #endif /* DEF */

@@ -1065,6 +1065,7 @@ JSAtom JS_GetModuleExportName(JSContext *ctx, const JSModuleDef *m, int idx);
 JSValueConst JS_GetModuleExportValue(JSContext *ctx, const JSModuleDef *m, int idx);
 JS_BOOL JS_GetModuleEvaluated(JSValue value);
 JS_BOOL JS_IsSameValue(JSContext *ctx, JSValueConst op1, JSValueConst op2);
+JS_BOOL JS_Atom_IsArrayIndex(JSContext *ctx, uint32_t *pval, JSAtom atom);
 void JS_SetNativeProxyClassId(JSClassID class_id);
 // QUICKAPP END
 
