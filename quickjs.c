@@ -54841,6 +54841,11 @@ JS_BOOL JS_IsSameValue(JSContext *ctx, JSValueConst op1, JSValueConst op2) {
    return js_same_value(ctx, op1, op2);
 }
 
+JS_BOOL JS_Atom_IsArrayIndex(JSContext *ctx, uint32_t *pval, JSAtom atom)
+{
+    return JS_AtomIsArrayIndex(ctx, pval, atom);
+}
+
 void JS_SetNativeProxyClassId(JSClassID class_id) {
   JS_CLASS_NATIVE_PROXY = class_id;
 }
