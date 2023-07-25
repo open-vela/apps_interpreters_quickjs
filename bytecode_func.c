@@ -40,7 +40,7 @@ void load_atom_array(JSRuntime* rt, const uint8_t* buffer)
     memcpy(rt->atom_hash, buffer + pos, sizeof(uint32_t) * rt->atom_hash_size);
     pos += sizeof(uint32_t) * rt->atom_hash_size;
 
-    rt->atom_array = js_malloc_rt(rt, sizeof(uint32_t) * rt->atom_size);
+    rt->atom_array = js_malloc_rt(rt, sizeof(JSAtomStruct*) * rt->atom_size);
     if (!rt->atom_array) {
         return;
     }
