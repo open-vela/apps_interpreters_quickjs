@@ -252,16 +252,6 @@ DEF(SyntaxError, "SyntaxError")
 DEF(TypeError, "TypeError")
 DEF(URIError, "URIError")
 DEF(InternalError, "InternalError")
-// QUICKAPP ADD BEGIN
-DEF(push, "push")
-DEF(pop, "pop")
-DEF(shift, "shift")
-DEF(unshift, "unshift")
-DEF(splice, "splice")
-DEF(includes, "includes")
-DEF(indexOf, "indexOf")
-DEF(lastIndexOf, "lastIndexOf")
-// END
 /* private symbols */
 DEF(Private_brand, "<brand>")
 /* symbols */
