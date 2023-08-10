@@ -55992,7 +55992,6 @@ void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,int64_t* 
                 for (i = 0; i < b->closure_var_count; i++) {
                     if (var_refs[i]) {
                         (*count)++;
-                        double ref_count = var_refs[i]->header.ref_count;
                         /* handle non object closed values */
                         if (var_refs[i]->pvalue == &var_refs[i]->value) {
                             /* potential multiple count */
