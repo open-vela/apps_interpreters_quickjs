@@ -147,7 +147,7 @@ void CDP_add_proxies_obj_child(JSRuntime *rt, memory_object_id parent_id,
 void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,
                                    int64_t *count, int64_t *size);
 
-int64_t getDumpMemoryId();
+int64_t getDumpMemoryId(void);
 #ifdef __cplusplus
 }
 #endif

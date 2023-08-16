@@ -33,7 +33,7 @@ CDP_memory_str_val CDP_get_obj_name(JSRuntime *rt, JSAtom atom) {
 }
 
 static int64_t memoryId = 200;
-int64_t getDumpMemoryId(){
+int64_t getDumpMemoryId(void){
   return memoryId++;
 };
 
