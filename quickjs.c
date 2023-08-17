@@ -75,7 +75,7 @@
 #define DIRECT_DISPATCH  1
 #endif
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined(__NuttX__)
 #define MALLOC_OVERHEAD  0
 #else
 #define MALLOC_OVERHEAD  8
