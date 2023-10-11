@@ -44,8 +44,9 @@ void load_atom_array(JSRuntime* rt, const uint8_t* buffer)
     if (!rt->atom_array) {
         return;
     }
-    memcpy(rt->atom_array, buffer + pos, sizeof(JSAtomStruct*) * rt->atom_size);
-    pos += sizeof(JSAtomStruct*) * rt->atom_size;
+
+    uint32_t* atom_array = (uint32_t*)(buffer + pos);
+    pos += sizeof(uint32_t) * rt->atom_size;
 
     int32_t jsstring_all_size = 0;
     jsstring_all_size = *(int32_t*)(buffer + pos);
@@ -60,13 +61,15 @@ void load_atom_array(JSRuntime* rt, const uint8_t* buffer)
     int32_t len = sizeof(int32_t);
     int32_t str_pos = 0;
     for (int i = 0; i < rt->atom_size; i++) {
-        if (!atom_is_free(rt->atom_array[i])) {
+        if (atom_array[i] == UINT32_MAX) {
             rt->atom_array[i] = (JSAtomStruct*)(rt->const_jsstring_buffer + str_pos + len);
             str_pos += *(int32_t*)(rt->const_jsstring_buffer + str_pos);
             rt->const_atom_count = i;
 #ifdef DUMP_LEAKS
             list_add_tail(&rt->atom_array[i]->link, &rt->string_list);
 #endif
+        } else {
+            rt->atom_array[i] = atom_set_free(atom_array[i]);
         }
     }
     rt->const_atom_count++;
@@ -162,7 +165,7 @@ size_t get_data_len(JSRuntime* rt)
     size_t len = 0;
     len += 5 * sizeof(uint32_t);
     len += sizeof(uint32_t) * rt->atom_hash_size;
-    len += sizeof(JSAtomStruct*) * rt->atom_size;
+    len += sizeof(uint32_t) * rt->atom_size;
     len += sizeof(uint32_t);
     for (int32_t i = 0; i < rt->atom_size; i++) {
         JSAtomStruct* p = rt->atom_array[i];
@@ -200,8 +203,18 @@ char* save_atom_array(JSRuntime* rt, size_t* buf_len)
     memcpy(buf + pos, rt->atom_hash, sizeof(uint32_t) * rt->atom_hash_size);
     pos += sizeof(uint32_t) * rt->atom_hash_size;
 
-    memcpy(buf + pos, rt->atom_array, sizeof(JSAtomStruct*) * rt->atom_size);
-    pos += sizeof(JSAtomStruct*) * rt->atom_size;
+    uint32_t* atom_array = (uint32_t*)(buf + pos);
+    for (int i = 0; i < rt->atom_size; i++) {
+        JSAtomStruct* p = rt->atom_array[i];
+        if (atom_is_free(p)) {
+            // 存储下一个空闲位置信息
+            atom_array[i] = atom_get_free(p);
+        } else {
+            // 标志这个位置有存储JSString
+            atom_array[i] = UINT32_MAX;
+        }
+    }
+    pos += sizeof(uint32_t) * rt->atom_size;
 
     // 保存字符串大小
     int32_t num = len - (pos) - sizeof(int32_t);
