@@ -54841,6 +54841,60 @@ JS_BOOL JS_IsSameValue(JSContext *ctx, JSValueConst op1, JSValueConst op2) {
    return js_same_value(ctx, op1, op2);
 }
 
+// The same with js_object_toString, only return tag.
+JSValue JS_ObjectToStringTag(JSContext* ctx, JSValueConst this_val) {
+    JSValue obj, tag;
+    int is_array;
+    JSAtom atom;
+    JSObject *p;
+
+    if (JS_IsNull(this_val)) {
+        tag = JS_NewString(ctx, "Null");
+    } else if (JS_IsUndefined(this_val)) {
+        tag = JS_NewString(ctx, "Undefined");
+    } else {
+        obj = JS_ToObject(ctx, this_val);
+        if (JS_IsException(obj))
+            return obj;
+        is_array = JS_IsArray(ctx, obj);
+        if (is_array < 0) {
+            JS_FreeValue(ctx, obj);
+            return JS_EXCEPTION;
+        }
+        if (is_array) {
+            atom = JS_ATOM_Array;
+        } else if (JS_IsFunction(ctx, obj)) {
+            atom = JS_ATOM_Function;
+        } else {
+            p = JS_VALUE_GET_OBJ(obj);
+            switch(p->class_id) {
+            case JS_CLASS_STRING:
+            case JS_CLASS_ARGUMENTS:
+            case JS_CLASS_MAPPED_ARGUMENTS:
+            case JS_CLASS_ERROR:
+            case JS_CLASS_BOOLEAN:
+            case JS_CLASS_NUMBER:
+            case JS_CLASS_DATE:
+            case JS_CLASS_REGEXP:
+                atom = ctx->rt->class_array[p->class_id].class_name;
+                break;
+            default:
+                atom = JS_ATOM_Object;
+                break;
+            }
+        }
+        tag = JS_GetProperty(ctx, obj, JS_ATOM_Symbol_toStringTag);
+        JS_FreeValue(ctx, obj);
+        if (JS_IsException(tag))
+            return JS_EXCEPTION;
+        if (!JS_IsString(tag)) {
+            JS_FreeValue(ctx, tag);
+            tag = JS_AtomToString(ctx, atom);
+        }
+    }
+    return tag;
+}
+
 JS_BOOL JS_Atom_IsArrayIndex(JSContext *ctx, uint32_t *pval, JSAtom atom)
 {
     return JS_AtomIsArrayIndex(ctx, pval, atom);
