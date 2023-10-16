@@ -55969,6 +55969,7 @@ void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,int64_t* 
     hp.js_func_count = 0;
     hp.str_count =0;
     hp.js_func_size = 0;
+    hp.js_func_pc2line_count = 0;
     JSObject *p;
     JSShape *sh;
     JSShapeProperty *prs;
