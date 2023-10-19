@@ -55592,7 +55592,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
               //If the operation is to add a child, the child type needs to be checked. If the operation is cfunction, the child type needs to be checked in gc_ There is nothing in the list. You need to manually add the node to the proxy tree
               //If you operate on yourself, you need to change your type
               if(self_or_child == CDP_CHILD){
-                CDP_add_proxies_obj_child(rt,parent_id, (memory_object_id)JS_VALUE_GET_PTR(*val),child_name);
+                CDP_add_proxies_obj_child(rt,parent_id, (memory_object_id)(uintptr_t)JS_VALUE_GET_PTR(*val),child_name);
               }
               JSObject* p = JS_VALUE_GET_PTR(*val);
               switch(p->class_id) {
@@ -55601,7 +55601,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
                     {
                         CDP_memory_str_val self_name = CDP_create_obj_name(CDP_VARREF_NATIVE_FINCTION_NAME,0);
                         if (self_or_child == CDP_CHILD) {
-                            rt->dump_memory_info.add_memory_object(rt, parent_id, EntryNative,(memory_object_id)JS_VALUE_GET_PTR(*val),&self_name,child_size,NULL);
+                            rt->dump_memory_info.add_memory_object(rt, parent_id, EntryNative,(memory_object_id)(uintptr_t)JS_VALUE_GET_PTR(*val),&self_name,child_size,NULL);
                         }
                         if(self_or_child == CDP_SELF){
                             CDP_memory_str_val self_name = CDP_create_obj_name(CDP_VARREF_NATIVE_FINCTION_NAME,
@@ -55618,7 +55618,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
         case JS_TAG_FUNCTION_BYTECODE:
             {
               if(self_or_child == CDP_CHILD){
-                CDP_add_proxies_obj_child(rt,parent_id, (memory_object_id)JS_VALUE_GET_PTR(*val),child_name);
+                CDP_add_proxies_obj_child(rt,parent_id, (memory_object_id)(uintptr_t)JS_VALUE_GET_PTR(*val),child_name);
               }
             }
             break;
@@ -55779,7 +55779,7 @@ static void CDP_add_module_to_proxies(JSRuntime *rt,JSModuleDef *m,memory_object
         if (me->export_type == JS_EXPORT_TYPE_LOCAL &&
             me->u.local.var_ref) {
             CDP_memory_str_val var_ref_name = CDP_get_obj_name(rt, me->export_name);
-            CDP_add_proxies_obj_child(rt,parent_id, (memory_object_id)&me->u.local.var_ref->header,&var_ref_name);
+            CDP_add_proxies_obj_child(rt,parent_id, (memory_object_id)(uintptr_t)&me->u.local.var_ref->header,&var_ref_name);
         }
     }
     CDP_memory_str_val module_ns_name = CDP_create_obj_name("module_ns",0);
