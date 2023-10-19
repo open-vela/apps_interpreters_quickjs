@@ -47,13 +47,13 @@ void CDP_add_proxies_obj_child(JSRuntime *rt, memory_object_id parent_id,
 void CDP_get_stats_update_info(JSRuntime *rt, JSGCObjectHeader *h) {
   int64_t count = 1;
   int64_t size = 1;
-  memory_object_id id = (memory_object_id)h;
+  memory_object_id id = (memory_object_id)(uintptr_t)h;
   CDP_get_gc_obj_count_and_size(rt, h, &count, &size);
   getDumpMemoryInfo(rt)->GC_obj_change(rt, id, 1, size);
 }
 
 void CDP_remove_gc_obj(JSRuntime *rt, JSGCObjectHeader *h) {
-  memory_object_id id = (memory_object_id)h;
+  memory_object_id id = (memory_object_id)(uintptr_t)h;
   getDumpMemoryInfo(rt)->GC_obj_change(rt, id, 0, 0);
 }
 
