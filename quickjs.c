@@ -2301,7 +2301,7 @@ void JS_FreeRuntime(JSRuntime *rt)
             list_del(&p->link);
 #endif
 #ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
-            if(i < rt->const_atom_count) {
+            if(i < rt->const_atom_count && rt->const_jsstring_buffer) {
                 continue;
             }
 #endif
@@ -3202,7 +3202,7 @@ static void JS_FreeAtomStruct(JSRuntime *rt, JSAtomStruct *p)
 static void __JS_FreeAtom(JSRuntime *rt, uint32_t i)
 {
 #ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
-    if (i < rt->const_atom_count)
+    if (i < rt->const_atom_count && rt->const_jsstring_buffer)
         return;
 #endif
     JSAtomStruct *p;
