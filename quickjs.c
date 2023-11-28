@@ -1832,6 +1832,10 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
     rt->malloc_state = ms;
     rt->malloc_gc_threshold = 256 * 1024;
 
+#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
+    rt->const_atom_count = JS_ATOM_END;
+#endif
+
 #ifdef CONFIG_BIGNUM
     bf_context_init(&rt->bf_ctx, js_bf_realloc, rt);
     set_dummy_numeric_ops(&rt->bigint_ops);
@@ -1880,10 +1884,6 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
     JS_UpdateStackTop(rt);
 
     rt->current_exception = JS_NULL;
-
-#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
-    rt->const_atom_count = JS_ATOM_END;
-#endif
 
     return rt;
  fail:
