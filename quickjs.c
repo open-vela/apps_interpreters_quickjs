@@ -235,7 +235,6 @@ enum {
 
     JS_CLASS_INIT_COUNT, /* last entry for predefined classes */
 };
-
 /* number of typed array types */
 #define JS_TYPED_ARRAY_COUNT  (JS_CLASS_FLOAT64_ARRAY - JS_CLASS_UINT8C_ARRAY + 1)
 static uint8_t const typed_array_size_log2[JS_TYPED_ARRAY_COUNT];
@@ -56164,6 +56163,10 @@ void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,int64_t* 
 #endif
 
 #include "bytecode_func.c"
+
+#ifndef DISABLE_EXPORT_API
+#include "quickjs-wamr.c"
+#endif
 
 #ifdef QUICKJS_CONFIG_TOOL
 // 关闭优化
