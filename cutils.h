@@ -80,6 +80,10 @@ typedef intptr_t ssize_t;
 #ifndef countof
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 #endif
+#ifndef container_of
+/* return the pointer of type 'type *' containing 'ptr' as field 'member' */
+#define container_of(ptr, type, member) ((type *)((uint8_t *)(ptr) - offsetof(type, member)))
+#endif
 
 typedef int BOOL;
 
