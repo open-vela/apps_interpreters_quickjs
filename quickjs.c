@@ -88,13 +88,9 @@
 
 /* define to include Atomics.* operations which depend on the OS
    threads */
-// QUICKAPP DEL BEGIN
-/*
 #if !defined(EMSCRIPTEN)
 #define CONFIG_ATOMICS
 #endif
-*/
-// END
 
 #if !defined(EMSCRIPTEN) && !defined(_MSC_VER)
 /* enable stack limitation */
@@ -1146,8 +1142,6 @@ struct JSObject {
     /* byte sizes: 40/48/72 */
 };
 
-// QUICKAPP DEL BEGIN
-/*
 enum {
     __JS_ATOM_NULL = JS_ATOM_NULL,
 #define DEF(name, str) JS_ATOM_ ## name,
@@ -1155,8 +1149,6 @@ enum {
 #undef DEF
     JS_ATOM_END,
 };
-*/
-// END
 #define JS_ATOM_LAST_KEYWORD JS_ATOM_super
 #define JS_ATOM_LAST_STRICT_KEYWORD JS_ATOM_yield
 
