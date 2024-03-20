@@ -3760,7 +3760,12 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv)
                       JS_NewCFunction(ctx, js_print, "print", 1));
     JS_SetPropertyStr(ctx, global_obj, "__loadScript",
                       JS_NewCFunction(ctx, js_loadScript, "__loadScript", 1));
-    
+
+#ifdef CONFIG_QUICKJS_HEAPDUMP
+    JS_SetPropertyStr(ctx, global_obj, "__js_gcdump_objects",
+                      JS_NewCFunction(ctx, js_gcdump_objects, "__js_gcdump_objects", 0));
+#endif
+
     JS_FreeValue(ctx, global_obj);
 }
 
