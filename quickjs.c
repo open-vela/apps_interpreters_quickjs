@@ -53,7 +53,7 @@
 #include "cutils.h"
 #include "list.h"
 #include "quickjs.h"
-#if defined(CONFIG_QUICKJS_HEAPDUMP)
+#if defined(CONFIG_QUICKJS_HEAPDUMP) || defined(CONFIG_QUICKJS_CPUPROFILING)
 #include "profile_utils.h"
 #endif
 #if defined(CONFIG_INTERPRETERS_QUICKJS_DEBUG)
@@ -470,6 +470,11 @@ struct JSRuntime {
     int32_t const_atom_count;
     uint8_t* const_jsstring_buffer;
 #endif
+#ifdef CONFIG_QUICKJS_CPUPROFILING
+    ProfileAllocator profile_allocator;
+    ProfileArray profile_func_list;
+    uint32_t is_profile_calls_enabled;
+#endif
 };
 #ifdef CONFIG_MEMORY_LEAK_TRACK
 
@@ -815,11 +820,20 @@ typedef struct JSFunctionBytecode {
         int pc2line_len;      //字节码长度
         uint8_t *pc2line_buf; //字节码映射表
         char *source;         //源码
+#ifdef CONFIG_QUICKJS_CPUPROFILING
+        size_t call_count;
+        clock_t time_spent;
+        size_t time_spent_count;
+#endif
     } debug;
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
     struct FunctionBytecodeDebuggerInfo debugger;
 #endif
 } JSFunctionBytecode;
+
+#ifdef CONFIG_QUICKJS_CPUPROFILING
+#define PROFILE_CALLS_SAMPLE 10
+#endif
 
 typedef struct JSBoundFunction {
     JSValue func_obj;
@@ -1061,6 +1075,13 @@ struct JSShape {
     JSShapeProperty prop[0]; /* prop_size elements */
 };
 
+typedef struct JSObjectFunc { /* JS_CLASS_BYTECODE_FUNCTION: 12/24 bytes */
+    /* also used by JS_CLASS_GENERATOR_FUNCTION, JS_CLASS_ASYNC_FUNCTION and JS_CLASS_ASYNC_GENERATOR_FUNCTION */
+    struct JSFunctionBytecode *function_bytecode;
+    JSVarRef **var_refs;
+    JSObject *home_object; /* for 'super' access */
+} JSObjectFunc;
+
 struct JSObject {
     union {
         JSGCObjectHeader header;
@@ -1107,12 +1128,7 @@ struct JSObject {
         struct JSAsyncFunctionData *async_function_data; /* JS_CLASS_ASYNC_FUNCTION_RESOLVE, JS_CLASS_ASYNC_FUNCTION_REJECT */
         struct JSAsyncFromSyncIteratorData *async_from_sync_iterator_data; /* JS_CLASS_ASYNC_FROM_SYNC_ITERATOR */
         struct JSAsyncGeneratorData *async_generator_data; /* JS_CLASS_ASYNC_GENERATOR */
-        struct { /* JS_CLASS_BYTECODE_FUNCTION: 12/24 bytes */
-            /* also used by JS_CLASS_GENERATOR_FUNCTION, JS_CLASS_ASYNC_FUNCTION and JS_CLASS_ASYNC_GENERATOR_FUNCTION */
-            struct JSFunctionBytecode *function_bytecode;
-            JSVarRef **var_refs;
-            JSObject *home_object; /* for 'super' access */
-        } func;
+        struct JSObjectFunc func;
         struct { /* JS_CLASS_C_FUNCTION: 12/20 bytes */
             JSContext *realm;
             JSCFunctionType c_function;
@@ -16766,6 +16782,10 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
     JSValue *local_buf, *stack_buf, *var_buf, *arg_buf, *sp, ret_val, *pval;
     JSVarRef **var_refs;
     size_t alloca_size;
+#ifdef CONFIG_QUICKJS_CPUPROFILING
+    clock_t JS_CallInternal_start = 0;
+    int use_time_spent = 0;
+#endif
 
 #if !DIRECT_DISPATCH
 #define SWITCH(pc)      switch (opcode = *pc++)
@@ -16856,6 +16876,17 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                          (JSValueConst *)argv, flags);
     }
     b = p->u.func.function_bytecode;
+
+#ifdef CONFIG_QUICKJS_CPUPROFILING
+    if(rt->is_profile_calls_enabled) {
+        profile_array_push(&rt->profile_func_list, &p->u.func);
+        use_time_spent = b->debug.call_count % PROFILE_CALLS_SAMPLE;
+        if(use_time_spent == 0) {
+            JS_CallInternal_start = clock();
+        }
+        ++b->debug.call_count;
+    }
+#endif
 
     if (unlikely(argc < b->arg_count || (flags & JS_CALL_FLAG_COPY_ARGV))) {
         arg_allocated_size = b->arg_count;
@@ -19290,6 +19321,15 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
         }
     }
     rt->current_stack_frame = sf->prev_frame;
+
+#ifdef CONFIG_QUICKJS_CPUPROFILING
+    if(rt->is_profile_calls_enabled && (use_time_spent == 0)) {
+        clock_t JS_CallInternal_end = clock();
+        b->debug.time_spent += JS_CallInternal_end-JS_CallInternal_start;
+        ++b->debug.time_spent_count;
+    }
+#endif
+
     return ret_val;
 }
 
@@ -56885,6 +56925,77 @@ void __js_gcdump_objects(JSContext *ctx) {
 JSValue js_gcdump_objects(JSContext *ctx, JSValueConst this_val, int argc,
                           JSValueConst *argv) {
     __js_gcdump_objects(ctx);
+    return JS_NULL;
+}
+#endif
+
+#ifdef CONFIG_QUICKJS_CPUPROFILING
+void dump_cpu_profiling_data2file(JSRuntime *rt) {
+    struct timeval tv;
+    char buf1[64], buf2[128];
+    struct tm *ti;
+
+    gettimeofday(&tv, NULL);
+    ti = localtime(&tv.tv_sec);
+
+    strftime(buf1, sizeof(buf1), "Trace.%Y%m%d.%H%M%S", ti);
+    snprintf(buf2, sizeof(buf2), "%s.%03ld", buf1, tv.tv_usec / 1000);
+
+    FILE *fp = fopen(buf2, "w");
+    fprintf(fp, "line_num    call_count   time_spent_count    time_spent        func_name\n");
+
+    // unique data
+    ProfileArray uniq_arr;
+    profile_array_init(&uniq_arr, sizeof(JSObjectFunc), 0);
+    for (int i = 0; i < rt->profile_func_list.len; i++) {
+        JSObjectFunc *func = profile_array_el(&rt->profile_func_list, JSObjectFunc, i);
+        int uniq = 1;
+        for (int j = 0; j < uniq_arr.len; j++) {
+            JSObjectFunc *func2 = profile_array_el(&uniq_arr, JSObjectFunc, j);
+            if (func2->function_bytecode->debug.line_num == func->function_bytecode->debug.line_num) {
+                uniq = 0;
+                break;
+            }
+        }
+        if (uniq) {
+            profile_array_push(&uniq_arr, func);
+        }
+    }
+
+    // sort data
+
+    // dump data
+    for (int i = 0; i < uniq_arr.len; i++) {
+      JSObjectFunc* func = profile_array_el(&uniq_arr, JSObjectFunc, i);
+      JSFunctionBytecode *b = func->function_bytecode;
+      char buf[ATOM_GET_STR_BUF_SIZE];
+      fprintf(fp, "[%d\t\t%zu\t\t%zu\t\t%zu\t\t%s]\n", b->debug.line_num, b->debug.call_count, b->debug.time_spent_count, b->debug.time_spent, JS_AtomGetStrRT(rt, buf, sizeof(buf), b->func_name));
+    }
+
+    fclose(fp);
+}
+
+// CPU Profiling
+JSValue js_start_cpu_profiling(JSContext *ctx, JSValueConst this_val, int argc,
+                               JSValueConst *argv) {
+    JSRuntime *rt = ctx->rt;
+    rt->is_profile_calls_enabled = 1;
+
+    rt->profile_allocator.opaque = rt;
+    rt->profile_allocator.profile_malloc = (ProfileMallocFunc *)&js_malloc_rt;
+    rt->profile_allocator.profile_free = (ProfileFreeFunc *)&js_free_rt;
+    rt->profile_allocator.profile_realloc = (ProfileReallocFunc *)&js_realloc_rt;
+    profile_set_allocator(&rt->profile_allocator);
+
+    profile_array_init(&rt->profile_func_list, sizeof(JSObjectFunc), 0);
+    return JS_NULL;
+}
+
+JSValue js_stop_cpu_profiling(JSContext *ctx, JSValueConst this_val, int argc,
+                              JSValueConst *argv) {
+    JSRuntime *rt = ctx->rt;
+    dump_cpu_profiling_data2file(rt);
+    rt->is_profile_calls_enabled = 0;
     return JS_NULL;
 }
 #endif
