@@ -51,7 +51,12 @@ void js_std_promise_rejection_tracker(JSContext *ctx, JSValueConst promise,
                                       JSValueConst reason,
                                       JS_BOOL is_handled, void *opaque);
 void js_std_set_worker_new_context_func(JSContext *(*func)(JSRuntime *rt));
-                                        
+
+#ifdef CONFIG_QUICKJS_HEAPDUMP
+JSValue js_gcdump_objects(JSContext *ctx, JSValueConst this_val, int argc,
+                          JSValueConst *argv);
+#endif
+
 #ifdef __cplusplus
 } /* extern "C" { */
 #endif
