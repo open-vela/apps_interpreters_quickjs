@@ -83,6 +83,11 @@ DEF(empty_string, "")
 DEF(length, "length")
 DEF(fileName, "fileName")
 DEF(lineNumber, "lineNumber")
+#ifdef CONFIG_QUICKJS_HEAPDUMP
+DEF(code, "code")
+DEF(cfunc, "cfunc")
+DEF(shape, "<shape>")
+#endif
 DEF(message, "message")
 DEF(errors, "errors")
 DEF(stack, "stack")
