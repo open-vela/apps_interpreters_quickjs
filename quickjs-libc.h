@@ -57,6 +57,13 @@ JSValue js_gcdump_objects(JSContext *ctx, JSValueConst this_val, int argc,
                           JSValueConst *argv);
 #endif
 
+#ifdef CONFIG_QUICKJS_CPUPROFILING
+JSValue js_start_cpu_profiling(JSContext *ctx, JSValueConst this_val, int argc,
+                            JSValueConst *argv);
+JSValue js_stop_cpu_profiling(JSContext *ctx, JSValueConst this_val, int argc,
+                           JSValueConst *argv);
+#endif
+
 #ifdef __cplusplus
 } /* extern "C" { */
 #endif
