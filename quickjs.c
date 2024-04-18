@@ -824,6 +824,7 @@ typedef struct JSFunctionBytecode {
         size_t call_count;
         clock_t time_spent;
         size_t time_spent_count;
+        double total_time_spent;
 #endif
     } debug;
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
@@ -56930,6 +56931,70 @@ JSValue js_gcdump_objects(JSContext *ctx, JSValueConst this_val, int argc,
 #endif
 
 #ifdef CONFIG_QUICKJS_CPUPROFILING
+/* swap array elem */
+static void profile_array_swap(ProfileArray* arr, int index1, int index2)
+{
+    if (index1 == index2) {
+        return;
+    }
+
+    size_t offset1 = index1 * arr->slot_size;
+    size_t offset2 = index2 * arr->slot_size;
+
+    void* temp = profile_mallocz(arr->slot_size);
+    if (temp == NULL) {
+        printf("Memory allocation failed.\n");
+        return;
+    }
+
+    memcpy(temp, (char*)arr->slots + offset1, arr->slot_size);
+    memcpy((char*)arr->slots + offset1, (char*)arr->slots + offset2, arr->slot_size);
+    memcpy((char*)arr->slots + offset2, temp, arr->slot_size);
+    profile_free(temp);
+}
+
+/* partition func */
+static int partition(ProfileArray* arr, int low, int high)
+{
+    /* The first element as the base value */
+    JSObjectFunc* pivot = profile_array_el(arr, JSObjectFunc, low);
+    int pivot_total_time = pivot->function_bytecode->debug.total_time_spent;
+
+    int i = low, j = high;
+    while (i < j) {
+        JSObjectFunc* elem1 = profile_array_el(arr, JSObjectFunc, j);
+        int elem1_total_time = elem1->function_bytecode->debug.total_time_spent;
+        while (i < j && elem1_total_time <= pivot_total_time)
+            j--;
+
+        JSObjectFunc* elem2 = profile_array_el(arr, JSObjectFunc, i);
+        int elem2_total_time = elem2->function_bytecode->debug.total_time_spent;
+        while (i < j && elem2_total_time >= pivot_total_time)
+            i++;
+
+        profile_array_swap(arr, i, j);
+    }
+    profile_array_swap(arr, i, low);
+    return i;
+}
+
+static void quick_sort(ProfileArray* arr, int low, int high)
+{
+    if (low >= high)
+        return;
+
+    int pivot = partition(arr, low, high);
+    quick_sort(arr, low, pivot - 1);
+    quick_sort(arr, pivot + 1, high);
+}
+
+static void profile_array_sort_by_total_time_spent_desc(ProfileArray* arr)
+{
+    if (arr->len <= 1)
+        return;
+    quick_sort(arr, 0, arr->len - 1);
+}
+
 void dump_cpu_profiling_data2file(JSRuntime *rt) {
     struct timeval tv;
     char buf1[64], buf2[128];
@@ -56942,7 +57007,7 @@ void dump_cpu_profiling_data2file(JSRuntime *rt) {
     snprintf(buf2, sizeof(buf2), "%s.%03ld", buf1, tv.tv_usec / 1000);
 
     FILE *fp = fopen(buf2, "w");
-    fprintf(fp, "line_num    call_count   time_spent_count    time_spent        func_name\n");
+    fprintf(fp, "%s\t%s\t%s\t%s\t%s\t%s\n", "[Line_Number", "Call_Count", "Time_Spent_Count", "Time_Spent(ms)", "Total_Time_Spent(ms)", "Func_Name]");
 
     /* unique data */
     ProfileArray uniq_arr;
@@ -56962,18 +57027,20 @@ void dump_cpu_profiling_data2file(JSRuntime *rt) {
         } else {
             /* set func key if it does not exist in the hash_map*/
             profile_hashmap_set(&hash_map, &key, NULL, false);
+            /* calculate the value of total_time_spent */
+            JSFunctionBytecode *b = func->function_bytecode;
+            b->debug.total_time_spent = ((double)(b->debug.call_count*b->debug.time_spent))/b->debug.time_spent_count;
             profile_array_push(&uniq_arr, func);
         }
     }
-
-    // sort data
-
-    // dump data
+    /* sort data */
+    profile_array_sort_by_total_time_spent_desc(&uniq_arr);
+    /* dump data */
     for (int i = 0; i < uniq_arr.len; i++) {
       JSObjectFunc* func = profile_array_el(&uniq_arr, JSObjectFunc, i);
       JSFunctionBytecode *b = func->function_bytecode;
       char buf[ATOM_GET_STR_BUF_SIZE];
-      fprintf(fp, "[%d\t\t%zu\t\t%zu\t\t%zu\t\t%s]\n", b->debug.line_num, b->debug.call_count, b->debug.time_spent_count, b->debug.time_spent, JS_AtomGetStrRT(rt, buf, sizeof(buf), b->func_name));
+      fprintf(fp, "[%d\t\t\t\t%zu\t\t\t%zu\t\t\t\t\t%zu\t\t\t\t%0.2f\t\t\t\t\t%s]\n", b->debug.line_num, b->debug.call_count, b->debug.time_spent_count, b->debug.time_spent, b->debug.total_time_spent, JS_AtomGetStrRT(rt, buf, sizeof(buf), b->func_name));
     }
 
     fclose(fp);
