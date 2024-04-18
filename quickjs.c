@@ -56944,20 +56944,24 @@ void dump_cpu_profiling_data2file(JSRuntime *rt) {
     FILE *fp = fopen(buf2, "w");
     fprintf(fp, "line_num    call_count   time_spent_count    time_spent        func_name\n");
 
-    // unique data
+    /* unique data */
     ProfileArray uniq_arr;
+    ProfileHashmap hash_map;
+    ProfileHashkey key;
     profile_array_init(&uniq_arr, sizeof(JSObjectFunc), 0);
+    profile_hashmap_init(&hash_map, profile_hashmap_key_shallow_copy,
+                   profile_hashmap_key_shallow_free, NULL);
     for (int i = 0; i < rt->profile_func_list.len; i++) {
         JSObjectFunc *func = profile_array_el(&rt->profile_func_list, JSObjectFunc, i);
-        int uniq = 1;
-        for (int j = 0; j < uniq_arr.len; j++) {
-            JSObjectFunc *func2 = profile_array_el(&uniq_arr, JSObjectFunc, j);
-            if (func2->function_bytecode->debug.line_num == func->function_bytecode->debug.line_num) {
-                uniq = 0;
-                break;
-            }
-        }
-        if (uniq) {
+        key.opaque = func;
+        key.size = sizeof(func);
+        key.hash = -1;
+        if(profile_hashmap_get(&hash_map, &key)) {
+          /* continue if it exist in the hash_map */
+          continue;
+        } else {
+            /* set func key if it does not exist in the hash_map*/
+            profile_hashmap_set(&hash_map, &key, NULL, false);
             profile_array_push(&uniq_arr, func);
         }
     }
