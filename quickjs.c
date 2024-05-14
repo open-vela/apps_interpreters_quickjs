@@ -56232,7 +56232,6 @@ int js_gcdump_add_atom(JSGCDumpContext *dc, JSAtom atom) {
     return i;
 }
 
-
 static void js_autoinit_gcdump(JSRuntime *rt, JSShapeProperty *prs,
                                JSProperty *pr, JS_GCDumpFunc *walk_func,
                                JS_GCDumpFuncContext dctx) {
@@ -56576,7 +56575,8 @@ void js_gcdump_process_obj(JSRuntime *rt, void *cell,
                     js_gcdump_node_from_gp(dc, (JSGCObjectHeader *)objp->shape);
                 node = profile_array_el(&dc->nodes, JSGCDumpNode, node_i);
                 if (shape_i >= 0) {
-                    edge.name_or_idx = js_gcdump_add_atom(dc, JS_ATOM_shape);
+                    const char *shape_cstr = "<shape>";
+                    edge.name_or_idx = js_gcdump_add_cstr(dc, shape_cstr, strlen(shape_cstr));
                     // display this prop as internal which reflects in gray color
                     edge.type = JSGCDumpEdge_TYPE_INTERNAL;
                     edge.to = shape_i * NODE_FIELD_COUNT;
@@ -56605,7 +56605,8 @@ void js_gcdump_process_obj(JSRuntime *rt, void *cell,
                         bytecode_i = js_gcdump_node_from_gp(
                             dc, (JSGCObjectHeader *)objp->u.cfunc.c_function.generic);
                         node = profile_array_el(&dc->nodes, JSGCDumpNode, bytecode_i);
-                        node->name = js_gcdump_add_atom(dc, JS_ATOM_cfunc);
+                        const char *cfunc_cstr = "cfunc";
+                        node->name = js_gcdump_add_cstr(dc, cfunc_cstr, strlen(cfunc_cstr));
                         node->type = JSGCDumpNode_TYPE_NATIVE;
                         node->self_size = sizeof(objp->u.cfunc.c_function.generic);
                     } else {
@@ -56615,7 +56616,8 @@ void js_gcdump_process_obj(JSRuntime *rt, void *cell,
                     node = profile_array_el(&dc->nodes, JSGCDumpNode, node_i);
 
                     if (bytecode_i >= 0) {
-                        edge.name_or_idx = js_gcdump_add_atom(dc, JS_ATOM_code);
+                        const char *code_cstr = "<code>";
+                        edge.name_or_idx = js_gcdump_add_cstr(dc, code_cstr, strlen(code_cstr));
                         // display this prop as internal which reflects in gray color
                         edge.type = JSGCDumpEdge_TYPE_INTERNAL;
                         edge.to = bytecode_i * NODE_FIELD_COUNT;
@@ -56674,7 +56676,8 @@ void js_gcdump_process_obj(JSRuntime *rt, void *cell,
             JSShape *sh = (JSShape *)gp;
             node->type = JSGCDumpNode_TYPE_HIDDEN;
             if (node->name == -2) {
-                node->name = js_gcdump_add_atom(dc, JS_ATOM_shape);
+                const char *shape_cstr = "<shape>";
+                node->name = js_gcdump_add_cstr(dc, shape_cstr, strlen(shape_cstr));
             }
             if (!node->self_size && sh->is_hashed) {
                 node->self_size = sizeof(JSShape);
