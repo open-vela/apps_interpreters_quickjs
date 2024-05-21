@@ -56930,6 +56930,12 @@ JSValue js_gcdump_objects(JSContext *ctx, JSValueConst this_val, int argc,
     __js_gcdump_objects(ctx);
     return JS_NULL;
 }
+
+/* export JS_DUMP_HEAP API */
+JSValue JS_DUMP_HEAP(JSContext *ctx){
+    __js_gcdump_objects(ctx);
+    return JS_NULL;
+}
 #endif
 
 #ifdef CONFIG_QUICKJS_CPUPROFILING
@@ -57071,6 +57077,18 @@ JSValue js_stop_cpu_profiling(JSContext *ctx, JSValueConst this_val, int argc,
     rt->is_profile_calls_enabled = 0;
     return JS_NULL;
 }
+
+/* export CPU Profiling C API */
+JSValue JS_START_CPU_PROFILING(JSContext *ctx) {
+    JSValueConst val = JS_NewString(ctx, "");
+    return js_start_cpu_profiling(ctx, val, 0, NULL);
+}
+
+JSValue JS_STOP_CPU_PROFILING(JSContext *ctx) {
+    JSValueConst val = JS_NewString(ctx, "");
+    return js_stop_cpu_profiling(ctx, val, 0, NULL);
+}
+
 #endif
 
 // QUICKAPP ADD BEGIN
