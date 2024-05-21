@@ -1150,6 +1150,17 @@ void dump_memory_usage(JSRuntime *rt, FILE *fp);
 void dump_objects(JSRuntime *rt);
 #endif
 
+/* Export QJS performance C API to quickapp framework */
+#ifdef CONFIG_QUICKJS_HEAPDUMP
+JSValue JS_DUMP_HEAP(JSContext *ctx);
+#endif
+
+#ifdef CONFIG_QUICKJS_CPUPROFILING
+JSValue JS_START_CPU_PROFILING(JSContext *ctx);
+JSValue JS_STOP_CPU_PROFILING(JSContext *ctx);
+#endif
+/*----------------------------------------------------*/
+
 #undef js_unlikely
 #undef js_force_inline
 
