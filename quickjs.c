@@ -6109,10 +6109,7 @@ static void gc_decref_child(JSRuntime *rt, JSGCObjectHeader *p)
         // 临时代码，检查内存泄漏检查，后续去掉
         printf("==== ref count error : %d %d %d=====\n", p->gc_obj_type, p->ref_count, p->mark);
         JS_DumpGCObject(rt, p);
-        if (p->ref_count == 0 && p->mark == 1) {
-            list_del(&p->link);
-            list_add_tail(&p->link, &rt->tmp_obj_list);
-        }
+        assert(p->ref_count > 0);
     }
 }
 
