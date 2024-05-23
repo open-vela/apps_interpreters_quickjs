@@ -56367,7 +56367,6 @@ void JS_GCDumpValue(JSRuntime *rt, JSValueConst val, JS_GCDumpFunc *walk_func,
         switch (JS_VALUE_GET_TAG(val)) {
         case JS_TAG_OBJECT:
         case JS_TAG_FUNCTION_BYTECODE:
-        case JS_TAG_STRING:
             walk_func(rt, JS_VALUE_GET_PTR(val), dctx);
             break;
         default:
@@ -56670,7 +56669,7 @@ void js_gcdump_process_obj(JSRuntime *rt, void *cell,
             node->self_size = sizeof(JSFunctionBytecode) + p->byte_code_len +
                               sizeof(JSVarDef) * (p->arg_count + p->var_count) +
                               sizeof(JSClosureVar) * p->closure_var_count +
-                              sizeof(JSValue) * p->cpool_count + p->debug.source_len;
+                              sizeof(JSValue) * p->cpool_count;
         } break;
         case JS_GC_OBJ_TYPE_SHAPE: {
             JSShape *sh = (JSShape *)gp;
