@@ -56795,7 +56795,7 @@ void js_gcdump_write2file(JSGCDumpContext *dc) {
     ti = localtime(&tv.tv_sec);
 
     strftime(buf1, sizeof(buf1), "Heap.%Y%m%d.%H%M%S", ti);
-    snprintf(buf2, sizeof(buf2), "%s.%03ld.heapsnapshot", buf1, tv.tv_usec / 1000);
+    snprintf(buf2, sizeof(buf2), "/data/app/%s.%03ld.heapsnapshot", buf1, tv.tv_usec / 1000);
 
     FILE *fp = fopen(buf2, "w");
 
