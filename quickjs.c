@@ -56491,6 +56491,9 @@ int js_gcdump_get_node_name(JSGCDumpContext *dc, JSObject *objp) {
 
 size_t js_gcdump_obj_size(JSObject *p) {
     size_t s = sizeof(JSObject);
+    if (p->prop) {
+      s += p->shape->prop_size * sizeof(*p->prop);
+    }
     switch (p->class_id) {
     case JS_CLASS_ARRAY:     /* u.array | length */
     case JS_CLASS_ARGUMENTS: /* u.array | length */
@@ -56661,12 +56664,38 @@ void js_gcdump_process_obj(JSRuntime *rt, void *cell,
             }
         } break;
         case JS_GC_OBJ_TYPE_FUNCTION_BYTECODE: {
-            JSFunctionBytecode *p = (JSFunctionBytecode *)cell;
-            node->type = JSGCDumpNode_TYPE_CODE;
-            node->self_size = sizeof(JSFunctionBytecode) + p->byte_code_len +
-                              sizeof(JSVarDef) * (p->arg_count + p->var_count) +
-                              sizeof(JSClosureVar) * p->closure_var_count +
-                              sizeof(JSValue) * p->cpool_count;
+            if (!node->self_size) {
+                JSFunctionBytecode *p = (JSFunctionBytecode *)cell;
+                node->type = JSGCDumpNode_TYPE_CODE;
+
+                if (p->func_name) {
+                    node->name = js_gcdump_add_atom(dc, p->func_name);
+                } else {
+                    const char *cstr = "Function";
+                    node->name = js_gcdump_add_cstr(dc, cstr, strlen(cstr));
+                }
+
+                // caculate function bytecode size
+                node->self_size = offsetof(JSFunctionBytecode, debug);
+                if (p->vardefs) {
+                    node->self_size += (p->arg_count + p->var_count) * sizeof(*p->vardefs);
+                }
+                if (p->cpool) {
+                    node->self_size += p->cpool_count * sizeof(*p->cpool);
+                }
+                if (p->closure_var) {
+                    node->self_size += p->closure_var_count * sizeof(*p->closure_var);
+                }
+                if (!p->read_only_bytecode && p->byte_code_buf) {
+                    node->self_size += p->byte_code_len;
+                }
+                if (p->has_debug) {
+                    node->self_size += sizeof(*p) - offsetof(JSFunctionBytecode, debug);
+                    if (p->debug.source) {
+                        node->self_size += p->debug.source_len + 1;
+                    }
+                }
+            }
         } break;
         case JS_GC_OBJ_TYPE_SHAPE: {
             JSShape *sh = (JSShape *)gp;
