@@ -56962,6 +56962,14 @@ JSValue JS_DUMP_HEAP(JSContext *ctx){
     __js_gcdump_objects(ctx);
     return JS_NULL;
 }
+
+/* export JS_DUMP_MEM API */
+JSValue JS_DUMP_MEM(JSContext *ctx){
+    JSMemoryUsage stats;
+    JS_ComputeMemoryUsage(ctx->rt, &stats);
+    JS_DumpMemoryUsage(stdout, &stats, ctx->rt);
+    return JS_NULL;
+}
 #endif
 
 #ifdef CONFIG_QUICKJS_CPUPROFILING
