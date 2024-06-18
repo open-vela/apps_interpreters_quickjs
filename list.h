@@ -28,6 +28,23 @@
 #include <stddef.h>
 #endif
 
+
+#ifdef list_add_tail
+#undef list_add_tail
+#endif
+
+#ifdef list_entry
+#undef list_entry
+#endif
+
+#ifdef list_first_entry
+#undef list_first_entry
+#endif
+
+#ifdef list_last_entry
+#undef list_last_entry
+#endif
+
 struct list_head {
     struct list_head *prev;
     struct list_head *next;
