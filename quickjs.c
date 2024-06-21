@@ -55379,6 +55379,8 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
           }
           break;
       case JS_CLASS_BYTECODE_FUNCTION: /* u.func */
+#ifdef CONFIG_QUICKJS_HEAPDUMP
+#else
         {
           {
             JSFunctionBytecode *b = p->u.func.function_bytecode;
@@ -55406,6 +55408,7 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
             }
           }
         }
+#endif
         break;
       case JS_CLASS_BOUND_FUNCTION:    /* u.bound_function */
           {
@@ -55829,6 +55832,8 @@ static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
     CDP_scan_js_obj_children(rt,p);
   } break;
   case JS_GC_OBJ_TYPE_FUNCTION_BYTECODE:
+#ifdef CONFIG_QUICKJS_HEAPDUMP
+#else
     /*the template objects can be part of a cycle*/
     {
       JSFunctionBytecode *b = (JSFunctionBytecode *)gp;
@@ -55860,16 +55865,20 @@ static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
         CDP_add_proxies_obj_child(rt,id,b->realm->header.id,&child_name);
       }
     }
+#endif
     break;
   case JS_GC_OBJ_TYPE_VAR_REF: {
-    JSVarRef *var_ref = (JSVarRef *)gp;
     memory_used_size += sizeof(JSVarRef);
     rt->dump_memory_info.add_memory_object_size_by_id(rt,id,memory_used_size);
     rt->dump_memory_info.add_memory_object_type_by_id(rt,id,EntryString);
+#ifdef CONFIG_QUICKJS_HEAPDUMP
+#else
+    JSVarRef *var_ref = (JSVarRef *)gp;
     /* only detached variable referenced are taken into account */
     assert(var_ref->is_detached);
     CDP_memory_str_val child_name = CDP_create_obj_name(CDP_VALUE_DEFAULT_NAME,0);
     CDP_add_value_to_proxies(rt,id, var_ref->pvalue, &child_name,CDP_SELF);
+#endif
   } break;
   case JS_GC_OBJ_TYPE_ASYNC_FUNCTION: {
     JSAsyncFunctionData *s = (JSAsyncFunctionData *)gp;
