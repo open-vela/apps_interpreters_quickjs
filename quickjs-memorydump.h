@@ -130,19 +130,11 @@ void CDP_get_stats_update_info(JSRuntime *rt, JSGCObjectHeader *h);
 // Triggered when the memory object in the engine is released
 void CDP_remove_gc_obj(JSRuntime *rt, JSGCObjectHeader *h);
 // Create Memory Object Name
-CDP_memory_str_val CDP_create_obj_name(const char *str, int len);
+void CDP_create_obj_name(CDP_memory_str_val* name, const char *str, int len);
 // Get Memory Object Name
 CDP_memory_str_val CDP_get_obj_name(JSRuntime *rt, JSAtom atom);
 // Convert int to string
 char *CDP_int_to_string(int num, char *str, int radix);
-// Since the address of val may be a temporary address, you need to manually
-// create a val id
-
-// Insert children into the children of nodes in the proxy tree. These children
-// will be traversed in the subsequent gclist
-void CDP_add_proxies_obj_child(JSRuntime *rt, memory_object_id parent_id,
-                               memory_object_id child_id,
-                               CDP_memory_str_val *child_name);
 // Get the number and size of objects in the engine
 void CDP_get_gc_obj_count_and_size(JSRuntime *rt, JSGCObjectHeader *gp,
                                    int64_t *count, int64_t *size);

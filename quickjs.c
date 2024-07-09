@@ -55273,67 +55273,62 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
     memory_object_id id = p->header.id;
     int64_t memory_used_size = 0;
     JSAtom obj_atom_name = rt->class_array[p->class_id].class_name;
-    CDP_memory_str_val obj_name ;
+    CDP_memory_str_val obj_name;
     EntryType type = EntryObject;
     switch(p->class_id) {
       case JS_CLASS_OBJECT:
       {
-        obj_name = CDP_get_obj_name(rt, obj_atom_name);
+        // obj_name = CDP_get_obj_name(rt, obj_atom_name);
         type = EntryObject;
-        JSShapeProperty *prs;
-        JSShape *sh;
-        int i;
-        sh = p->shape;
-        prs = get_shape_prop(sh);
+        JSShape* sh = p->shape;
+        JSShapeProperty* prs = get_shape_prop(sh);
+        CDP_memory_str_val child_name;
+        if (prs->atom != JS_ATOM_NULL) {
+            child_name = CDP_get_obj_name(rt,prs->atom);
+        }
         //Type Attribute Size
         memory_used_size += sizeof(JSObject);
         //scan children
-        for (i = 0; i < sh->prop_count; i++) {
+        for (int i = 0; i < sh->prop_count; i++) {
           memory_used_size += sh->prop_size * sizeof(*p->prop);
           JSProperty *pr = &p->prop[i];
-          if (prs->atom != JS_ATOM_NULL) {
             if (prs->flags & JS_PROP_TMASK) {
               if ((prs->flags & JS_PROP_TMASK) == JS_PROP_GETSET) {
                 if (pr->u.getset.getter) {
-                  CDP_memory_str_val child_name = CDP_get_obj_name(rt,prs->atom);
-                  CDP_add_proxies_obj_child(rt,id,pr->u.getset.getter->header.id,&child_name);
+                  rt->dump_memory_info.add_memory_object_child_by_id(rt,id,pr->u.getset.getter->header.id,&child_name);
                 }
                 if (pr->u.getset.setter) {
-                  CDP_memory_str_val child_name = CDP_get_obj_name(rt,prs->atom);
-                  CDP_add_proxies_obj_child(rt,id,pr->u.getset.setter->header.id,&child_name);
+                  rt->dump_memory_info.add_memory_object_child_by_id(rt,id,pr->u.getset.setter->header.id,&child_name);
                 }
               } else if ((prs->flags & JS_PROP_TMASK) == JS_PROP_VARREF) {
                 if (pr->u.var_ref->is_detached) {
                   /* Note: the tag does not matter
                     provided it is a GC object */
-                  CDP_memory_str_val child_name = CDP_get_obj_name(rt,prs->atom);
-                  CDP_add_proxies_obj_child(rt,id,pr->u.var_ref->header.id,&child_name);
+                  rt->dump_memory_info.add_memory_object_child_by_id(rt,id,pr->u.var_ref->header.id,&child_name);
                 }
               } else if ((prs->flags & JS_PROP_TMASK) == JS_PROP_AUTOINIT) {
-                CDP_memory_str_val child_name = CDP_get_obj_name(rt,prs->atom);
                 memory_object_id child_id = getDumpMemoryId();
-                CDP_add_proxies_obj_child(rt,id,child_id,&child_name);
-                CDP_memory_str_val child_val = CDP_create_obj_name(CDP_UNDEFINED_NAME, 0);
+                rt->dump_memory_info.add_memory_object_child_by_id(rt, id, child_id, &child_name);
+                CDP_memory_str_val child_val;
+                CDP_create_obj_name(&child_val, CDP_UNDEFINED_NAME, 0);
                 rt->dump_memory_info.add_memory_object(rt,id,EntryHidden,child_id,&child_val,1,NULL);
               }
             } else {
-              CDP_memory_str_val child_name = CDP_get_obj_name(rt,prs->atom);
-              //value of obeject
-              CDP_add_value_to_proxies(rt,id, &(pr->u.value), &child_name,CDP_CHILD);
+              // value of obeject
+              CDP_add_value_to_proxies(rt,id, &(pr->u.value), &child_name, CDP_CHILD);
             }
-          }
           prs++;
         }
       }
         break;
       case JS_CLASS_ARRAY:             /* u.array | length */
       case JS_CLASS_ARGUMENTS:         /* u.array | length */
-          {
+        {
             type = EntryArray;
-            obj_name = CDP_get_obj_name(rt, obj_atom_name);
+            // obj_name = CDP_get_obj_name(rt, obj_atom_name);
             if (p->fast_array) {
               if (p->u.array.u.values) {
-                  memory_used_size += p->u.array.count *
+                  memory_used_size = p->u.array.count *
                       sizeof(*p->u.array.u.values);
 
                   for (int i = 0; i < p->u.array.count; i++) {
@@ -55346,13 +55341,13 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
                   }
                 }
             }
-          }
-          break;
+        }
+        break;
       case JS_CLASS_STRING:            /* u.object_data */
         {
-          obj_name = CDP_get_obj_name(rt, obj_atom_name);
+          // obj_name = CDP_get_obj_name(rt, obj_atom_name);
           type = EntryString;
-          CDP_add_value_to_proxies(rt,id,&(p->u.object_data),NULL,CDP_SELF);
+          CDP_add_value_to_proxies(rt, id, &(p->u.object_data), NULL, CDP_SELF);
         }
           break;
       case JS_CLASS_NUMBER:            /* u.object_data */
@@ -55366,16 +55361,17 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
       case JS_CLASS_BIG_DECIMAL:         /* u.object_data */
   #endif
           {
-            obj_name = CDP_get_obj_name(rt, obj_atom_name);
+            // obj_name = CDP_get_obj_name(rt, obj_atom_name);
             type = EntryHeapNumber;
-            CDP_memory_str_val child_name = CDP_create_obj_name("number",0);
+            CDP_memory_str_val child_name;
+            CDP_create_obj_name(&child_name, "number",0);
             CDP_add_value_to_proxies(rt,id,&(p->u.object_data),&child_name,CDP_SELF);
           }
           break;
       case JS_CLASS_C_FUNCTION:        /* u.cfunc */
           {
             type = EntryNative;
-            obj_name = CDP_get_obj_name(rt, obj_atom_name);
+            // obj_name = CDP_get_obj_name(rt, obj_atom_name);
           }
           break;
       case JS_CLASS_BYTECODE_FUNCTION: /* u.func */
@@ -55388,15 +55384,18 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
             memory_used_size += b->closure_var_count * sizeof(*var_refs);
             obj_name = CDP_get_obj_name(rt, b->func_name?b->func_name:obj_atom_name);
             if(b->debug.source_len) {
-              CDP_memory_str_val source_name = CDP_create_obj_name("source",0);
-              CDP_memory_str_val source_val = CDP_create_obj_name(b->debug.source,b->debug.source_len);
+              CDP_memory_str_val source_name;
+              CDP_create_obj_name(&source_name, "source",0);
+              CDP_memory_str_val source_val;
+              CDP_create_obj_name(&source_val, b->debug.source,b->debug.source_len);
               rt->dump_memory_info.add_memory_object(rt,id,EntryString,b->header.id,&source_val,1,NULL);
               rt->dump_memory_info.add_memory_object_child_by_id(rt,id,b->header.id,&source_name);
             }
             /* home_object: object will be accounted for in list scan */
             if (var_refs) {
                 for (int i = 0; i < b->closure_var_count; i++) {
-                  CDP_memory_str_val child_name = CDP_create_obj_name("func_val",0);
+                  CDP_memory_str_val child_name;
+                  CDP_create_obj_name(&child_name, "func_val",0);
                   if (var_refs[i]) {
                     if (var_refs[i]->pvalue == &var_refs[i]->value) {
                       /* potential multiple count */
@@ -55413,7 +55412,7 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
       case JS_CLASS_BOUND_FUNCTION:    /* u.bound_function */
           {
             JSBoundFunction *bf = p->u.bound_function;
-            obj_name = CDP_get_obj_name(rt, obj_atom_name);
+            // obj_name = CDP_get_obj_name(rt, obj_atom_name);
             for (int i = 0; i < bf->argc; i++) {
                 CDP_memory_str_val child_name;
                 char name[32] = {0};
@@ -55422,12 +55421,14 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
                 child_name.flag = 0;
                 CDP_add_value_to_proxies(rt,id,&(bf->argv[i]),&child_name,CDP_CHILD);
             }
-            CDP_memory_str_val func_name = CDP_create_obj_name("bind function",0);
+            CDP_memory_str_val func_name;
+            CDP_create_obj_name(&func_name, "bind function",0);
             CDP_add_value_to_proxies(rt,id,&(bf->func_obj),&func_name,CDP_CHILD);
 
-            CDP_memory_str_val this_name = CDP_create_obj_name("bind this",0);
+            CDP_memory_str_val this_name;
+            CDP_create_obj_name(&this_name, "bind this",0);
             CDP_add_value_to_proxies(rt,id,&(bf->this_val),&this_name,CDP_CHILD);
-            memory_used_size += sizeof(*bf) + bf->argc * sizeof(*bf->argv);
+            memory_used_size = sizeof(*bf) + bf->argc * sizeof(*bf->argv);
             type = EntryCode;
           }
           break;
@@ -55435,13 +55436,14 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
       case JS_CLASS_C_FUNCTION_DATA:   /* u.c_function_data_record */
         {
           JSCFunctionDataRecord *fd = p->u.c_function_data_record;
-          obj_name = CDP_get_obj_name(rt, obj_atom_name);
+          // obj_name = CDP_get_obj_name(rt, obj_atom_name);
           if (fd) {
-            CDP_memory_str_val child_name = CDP_create_obj_name("func_val",0);
+            CDP_memory_str_val child_name;
+            CDP_create_obj_name(&child_name, "func_val",0);
             for (int i = 0; i < fd->data_len; i++) {
               CDP_add_value_to_proxies(rt,id,&(fd->data[i]),&child_name,CDP_CHILD);
             }
-            memory_used_size += sizeof(*fd) + fd->data_len * sizeof(*fd->data);
+            memory_used_size = sizeof(*fd) + fd->data_len * sizeof(*fd->data);
           }
         }
         break;
@@ -55454,7 +55456,7 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
               val.name = JS_ToCString(rt->debugger_info.currCtx, regex_string_obj);
               val.flag =STORE_VAL(0, 1);
               int64_t child_size = sizeof(JSRegExp);
-              obj_name = CDP_get_obj_name(rt, obj_atom_name);
+              // obj_name = CDP_get_obj_name(rt, obj_atom_name);
               if(CDP_dump_string_info(rt,p->u.regexp.pattern,&child_size,&val)){
                 rt->dump_memory_info.add_memory_object(rt,id,EntryString,p->header.id,&val,child_size,NULL);
               }
@@ -55467,7 +55469,7 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
       case JS_CLASS_FOR_IN_ITERATOR:   /* u.for_in_iterator */
           {
             JSForInIterator *it = p->u.for_in_iterator;
-            obj_name = CDP_get_obj_name(rt, obj_atom_name);
+            // obj_name = CDP_get_obj_name(rt, obj_atom_name);
             if (it) {
                 CDP_add_value_to_proxies(rt,id,&(it->obj),NULL,CDP_SELF);
                 memory_used_size += sizeof(*it);
@@ -55479,7 +55481,7 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
       case JS_CLASS_SHARED_ARRAY_BUFFER: /* u.array_buffer */
           {
             JSArrayBuffer *abuf = p->u.array_buffer;
-            obj_name = CDP_get_obj_name(rt, obj_atom_name);
+            // obj_name = CDP_get_obj_name(rt, obj_atom_name);
             if (abuf) {
                 memory_used_size += sizeof(*abuf);
                 if (abuf->data) {
@@ -55504,7 +55506,7 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
       case JS_CLASS_FLOAT32_ARRAY:     /* u.typed_array / u.array */
       case JS_CLASS_FLOAT64_ARRAY:     /* u.typed_array / u.array */
       {
-        obj_name = CDP_get_obj_name(rt, obj_atom_name);
+        // obj_name = CDP_get_obj_name(rt, obj_atom_name);
         type = EntryArray;
       }
       break;
@@ -55530,18 +55532,19 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
       case JS_CLASS_ASYNC_GENERATOR:   /* u.async_generator_data */
           /* TODO */
           {
-          obj_name = CDP_get_obj_name(rt, obj_atom_name);
+           // obj_name = CDP_get_obj_name(rt, obj_atom_name);
            type = EntryArray;
           }
           break;
       default:
-          obj_name = CDP_get_obj_name(rt, obj_atom_name);
+          // obj_name = CDP_get_obj_name(rt, obj_atom_name);
           type = EntryObject;
           break;
       }
-      rt->dump_memory_info.add_memory_object_size_by_id(rt,id,memory_used_size);
-      rt->dump_memory_info.add_memory_object_type_by_id(rt,id,type);
-      rt->dump_memory_info.add_memory_object_value_by_id(rt,id,&obj_name);
+      obj_name = CDP_get_obj_name(rt, obj_atom_name);
+      rt->dump_memory_info.add_memory_object_size_by_id(rt, id, memory_used_size);
+      rt->dump_memory_info.add_memory_object_type_by_id(rt, id, type);
+      rt->dump_memory_info.add_memory_object_value_by_id(rt, id, &obj_name);
 }
 
 //Add JSValueConst to the proxy tree
@@ -55554,20 +55557,21 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
               //If the operation is to add a child, the child type needs to be checked. If the operation is cfunction, the child type needs to be checked in gc_ There is nothing in the list. You need to manually add the node to the proxy tree
               //If you operate on yourself, you need to change your type
               if(self_or_child == CDP_CHILD){
-                CDP_add_proxies_obj_child(rt,parent_id, (memory_object_id)(uintptr_t)JS_VALUE_GET_PTR(*val),child_name);
+                rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id, (memory_object_id)(uintptr_t)JS_VALUE_GET_PTR(*val),child_name);
               }
               JSObject* p = JS_VALUE_GET_PTR(*val);
               switch(p->class_id) {
                 //@TODO There may be other types to deal with
                 case JS_CLASS_C_FUNCTION:         /* u.array | length */
                     {
-                        CDP_memory_str_val self_name = CDP_create_obj_name(CDP_VARREF_NATIVE_FINCTION_NAME,0);
+                        CDP_memory_str_val self_name;
+                        CDP_create_obj_name(&self_name, CDP_VARREF_NATIVE_FINCTION_NAME,0);
                         if (self_or_child == CDP_CHILD) {
                             rt->dump_memory_info.add_memory_object(rt, parent_id, EntryNative,(memory_object_id)(uintptr_t)JS_VALUE_GET_PTR(*val),&self_name,child_size,NULL);
                         }
                         if(self_or_child == CDP_SELF){
-                            CDP_memory_str_val self_name = CDP_create_obj_name(CDP_VARREF_NATIVE_FINCTION_NAME,
-                            0);
+                            // CDP_memory_str_val self_name = CDP_create_obj_name(&CDP_VARREF_NATIVE_FINCTION_NAME,
+                            // 0);
                             rt->dump_memory_info.add_memory_object_value_by_id(rt,parent_id,&self_name);
                         }
                     }
@@ -55580,7 +55584,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
         case JS_TAG_FUNCTION_BYTECODE:
             {
               if(self_or_child == CDP_CHILD){
-                CDP_add_proxies_obj_child(rt,parent_id, (memory_object_id)(uintptr_t)JS_VALUE_GET_PTR(*val),child_name);
+                rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id, (memory_object_id)(uintptr_t)JS_VALUE_GET_PTR(*val),child_name);
               }
             }
             break;
@@ -55610,9 +55614,9 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
         {
           int64_t int_val = JS_VALUE_GET_FLOAT64(*val);
           if(int_val){
-            child_val = CDP_create_obj_name("ture",0);
+            CDP_create_obj_name(&child_val, "ture",0);
           }else {
-            child_val = CDP_create_obj_name("false",0);
+            CDP_create_obj_name(&child_val, "false",0);
           }
           memory_object_id child_id = getDumpMemoryId();
           child_val.flag = 0;
@@ -55647,7 +55651,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
         {
           memory_object_id child_id = getDumpMemoryId();
           JSString *str = JS_VALUE_GET_STRING(*val);
-           child_size += sizeof(JSString);
+          child_size += sizeof(JSString);
           if (!str->atom_type) {  /* atoms are handled separately */
             double s_ref_count = str->header.ref_count;
             child_size += ((sizeof(*str) + (str->len << str->is_wide_char) +
@@ -55687,7 +55691,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
           break;
         case JS_TAG_NULL:
         {
-          child_val = CDP_create_obj_name("null",0);
+          CDP_create_obj_name(&child_val, "null",0);
           child_val.flag = 0;
           memory_object_id child_id = getDumpMemoryId();
           if(self_or_child == CDP_CHILD){
@@ -55701,7 +55705,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
           break;
         case JS_TAG_UNDEFINED:
         {
-          child_val = CDP_create_obj_name("undefined",0);
+          CDP_create_obj_name(&child_val, "undefined",0);
           child_val.flag = 0;
           memory_object_id child_id = getDumpMemoryId();
           if(self_or_child == CDP_CHILD){
@@ -55719,44 +55723,45 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
 }
 
 static void CDP_add_async_func_to_proxies(JSRuntime *rt,JSAsyncFunctionState *s,memory_object_id parent_id){
-    JSStackFrame *sf;
-    JSValue *sp;
-    sf = &s->frame;
-    CDP_memory_str_val child_name = CDP_create_obj_name(CDP_VALUE_DEFAULT_NAME,0);
+    JSStackFrame *sf = &s->frame;
+    CDP_memory_str_val child_name;
+    CDP_create_obj_name(&child_name, CDP_VALUE_DEFAULT_NAME,0);
     CDP_add_value_to_proxies(rt,parent_id,&(sf->cur_func),&child_name,CDP_CHILD);
     CDP_add_value_to_proxies(rt,parent_id,&(s->this_val),&child_name,CDP_CHILD);
     //@TODO Currently, sf ->cur_ A virtual node can be added after the value on the sp is leveled to the parent node
     if (sf->cur_sp) {
-        for(sp = sf->arg_buf; sp < sf->cur_sp; sp++){
+        for(JSValue *sp = sf->arg_buf; sp < sf->cur_sp; sp++){
             CDP_add_value_to_proxies(rt,parent_id,&(sf->cur_func),&child_name,CDP_CHILD);
         }
     }
 }
 //Traverse the objects in the module module
 static void CDP_add_module_to_proxies(JSRuntime *rt,JSModuleDef *m,memory_object_id parent_id){
-    int i;
     //@TODO Here you can add a virtual node
-    for(i = 0; i < m->export_entries_count; i++) {
+    for(int i = 0; i < m->export_entries_count; i++) {
         JSExportEntry *me = &m->export_entries[i];
         if (me->export_type == JS_EXPORT_TYPE_LOCAL &&
             me->u.local.var_ref) {
             CDP_memory_str_val var_ref_name = CDP_get_obj_name(rt, me->export_name);
-            CDP_add_proxies_obj_child(rt,parent_id, (memory_object_id)(uintptr_t)&me->u.local.var_ref->header,&var_ref_name);
+            rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id, (memory_object_id)(uintptr_t)&me->u.local.var_ref->header,&var_ref_name);
         }
     }
-    CDP_memory_str_val module_ns_name = CDP_create_obj_name("module_ns",0);
+    CDP_memory_str_val module_ns_name;
+    CDP_create_obj_name(&module_ns_name, "module_ns",0);
     CDP_add_value_to_proxies(rt,parent_id,&(m->module_ns),&module_ns_name,CDP_CHILD);
-    CDP_memory_str_val func_obj_name = CDP_create_obj_name("func_obj",0);
+    CDP_memory_str_val func_obj_name;
+    CDP_create_obj_name(&func_obj_name, "func_obj",0);
     CDP_add_value_to_proxies(rt,parent_id,&(m->func_obj),&func_obj_name,CDP_CHILD);
-    CDP_memory_str_val eval_exception_name = CDP_create_obj_name("eval_exception",0);
+    CDP_memory_str_val eval_exception_name;
+    CDP_create_obj_name(&eval_exception_name, "eval_exception",0);
     CDP_add_value_to_proxies(rt,parent_id,&(m->eval_exception),&eval_exception_name,CDP_CHILD);
-    CDP_memory_str_val meta_obj_name = CDP_create_obj_name("meta_obj",0);
+    CDP_memory_str_val meta_obj_name;
+    CDP_create_obj_name(&meta_obj_name, "meta_obj",0);
     CDP_add_value_to_proxies(rt,parent_id,&(m->meta_obj),&meta_obj_name,CDP_CHILD);
 }
 //Traverse ctx and add it to the proxy tree
 static void CDP_add_context_to_proxies(JSRuntime *rt,JSContext *ctx){
-    int i;
-    struct list_head *el;
+    struct list_head *el = NULL;
     memory_object_id id = ctx->header.id;
     list_for_each(el, &ctx->loaded_modules) {
         JSModuleDef *m = list_entry(el, JSModuleDef, link);
@@ -55769,27 +55774,34 @@ static void CDP_add_context_to_proxies(JSRuntime *rt,JSContext *ctx){
         rt->dump_memory_info.add_memory_object(rt,id,EntryObject,m_id,NULL,m_size,&m_name);
         CDP_add_module_to_proxies(rt,m,m_id);
     }
-    CDP_memory_str_val global_obj_name = CDP_create_obj_name("global_obj",0);
+    CDP_memory_str_val global_obj_name;
+    CDP_create_obj_name(&global_obj_name, "global_obj",0);
     CDP_add_value_to_proxies(rt,id,&(ctx->global_obj),&global_obj_name,CDP_CHILD);
-    CDP_memory_str_val global_var_obj_name = CDP_create_obj_name("global_var_obj",0);
+    CDP_memory_str_val global_var_obj_name;
+    CDP_create_obj_name(&global_var_obj_name, "global_var_obj",0);
     CDP_add_value_to_proxies(rt,id,&(ctx->global_var_obj),&global_var_obj_name,CDP_CHILD);
-    CDP_memory_str_val throw_type_error_name = CDP_create_obj_name("throw_type_error",0);
+    CDP_memory_str_val throw_type_error_name;
+    CDP_create_obj_name(&throw_type_error_name, "throw_type_error",0);
     CDP_add_value_to_proxies(rt,id,&(ctx->throw_type_error),&throw_type_error_name,CDP_CHILD);
-    CDP_memory_str_val eval_obj_name = CDP_create_obj_name("eval_obj",0);
+    CDP_memory_str_val eval_obj_name;
+    CDP_create_obj_name(&eval_obj_name, "eval_obj",0);
     CDP_add_value_to_proxies(rt,id,&(ctx->eval_obj),&eval_obj_name,CDP_CHILD);
-    CDP_memory_str_val array_proto_values_name = CDP_create_obj_name("array_proto_values",0);
+    CDP_memory_str_val array_proto_values_name;
+    CDP_create_obj_name(&array_proto_values_name, "array_proto_values",0);
 
     CDP_add_value_to_proxies(rt,id,&(ctx->array_proto_values),&array_proto_values_name,CDP_CHILD);
-    CDP_memory_str_val native_error_proto = CDP_create_obj_name("native_error_proto",0);
-    for(i = 0; i < JS_NATIVE_ERROR_COUNT; i++) {
+    CDP_memory_str_val native_error_proto;
+    CDP_create_obj_name(&native_error_proto, "native_error_proto",0);
+    for(int i = 0; i < JS_NATIVE_ERROR_COUNT; i++) {
         CDP_add_value_to_proxies(rt,id,&(ctx->native_error_proto[i]),&native_error_proto,CDP_CHILD);
     }
-    CDP_memory_str_val class_proto_name = CDP_create_obj_name("class_proto",0);
+    CDP_memory_str_val class_proto_name;
+    CDP_create_obj_name(&class_proto_name, "class_proto",0);
     memory_object_id class_proto_id = getDumpMemoryId();
     rt->dump_memory_info.add_memory_object(rt,id,EntrySynthetic,class_proto_id,NULL,1,&class_proto_name);
     rt->dump_memory_info.add_memory_object_child_by_id(rt,id,class_proto_id,&class_proto_name);
 
-    for(i = 0; i < rt->class_count; i++) {
+    for(int i = 0; i < rt->class_count; i++) {
       char count[7] = {0};
       CDP_memory_str_val class_count_name ;
       CDP_int_to_string(i,count,10);
@@ -55797,35 +55809,45 @@ static void CDP_add_context_to_proxies(JSRuntime *rt,JSContext *ctx){
       class_count_name.flag = 0;
       CDP_add_value_to_proxies(rt,class_proto_id,&(ctx->class_proto[i]),&class_count_name,CDP_CHILD);
     }
-    CDP_memory_str_val iterator_proto_name = CDP_create_obj_name("iterator_proto",0);
+    CDP_memory_str_val iterator_proto_name;
+    CDP_create_obj_name(&iterator_proto_name, "iterator_proto",0);
     CDP_add_value_to_proxies(rt,id,&(ctx->iterator_proto),&iterator_proto_name,CDP_CHILD);
-    CDP_memory_str_val async_iterator_proto_name = CDP_create_obj_name("async_iterator_proto",0);
+    CDP_memory_str_val async_iterator_proto_name;
+    CDP_create_obj_name(&async_iterator_proto_name, "async_iterator_proto",0);
     CDP_add_value_to_proxies(rt,id,&(ctx->async_iterator_proto),&async_iterator_proto_name,CDP_CHILD);
-    CDP_memory_str_val promise_ctor_name = CDP_create_obj_name("promise_ctor",0);
+    CDP_memory_str_val promise_ctor_name;
+    CDP_create_obj_name(&promise_ctor_name, "promise_ctor",0);
     CDP_add_value_to_proxies(rt,id,&(ctx->promise_ctor),&promise_ctor_name,CDP_CHILD);
-    CDP_memory_str_val array_ctor_name = CDP_create_obj_name("array_ctor",0);
+    CDP_memory_str_val array_ctor_name;
+    CDP_create_obj_name(&array_ctor_name, "array_ctor",0);
     CDP_add_value_to_proxies(rt,id,&(ctx->array_ctor),&array_ctor_name,CDP_CHILD);
-    CDP_memory_str_val regexp_ctor_name = CDP_create_obj_name("array_ctor",0);
+    CDP_memory_str_val regexp_ctor_name;
+    CDP_create_obj_name(&regexp_ctor_name, "array_ctor",0);
     CDP_add_value_to_proxies(rt,id,&(ctx->regexp_ctor),&regexp_ctor_name,CDP_CHILD);
-    CDP_memory_str_val function_ctor_name = CDP_create_obj_name("array_ctor",0);
+    CDP_memory_str_val function_ctor_name;
+    CDP_create_obj_name(&function_ctor_name, "array_ctor",0);
     CDP_add_value_to_proxies(rt,id,&(ctx->function_ctor),&function_ctor_name,CDP_CHILD);
-    CDP_memory_str_val function_proto_name = CDP_create_obj_name("function_proto",0);
+    CDP_memory_str_val function_proto_name;
+    CDP_create_obj_name(&function_proto_name, "function_proto",0);
     CDP_add_value_to_proxies(rt,id,&(ctx->function_proto),&function_proto_name,CDP_CHILD);
-    CDP_memory_str_val array_shape = CDP_create_obj_name("array_shape",0);
+    CDP_memory_str_val array_shape;
+    CDP_create_obj_name(&array_shape, "array_shape",0);
     if (ctx->array_shape){
-        CDP_add_proxies_obj_child(rt, id, ctx->array_shape->header.id, &array_shape);
+        rt->dump_memory_info.add_memory_object_child_by_id(rt, id, ctx->array_shape->header.id, &array_shape);
     }
 }
 
 static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
-  //Unique ID of proxy object
+  /* Unique ID of proxy object */
   memory_object_id id = gp->id;
-  //size of used memory
+  /* size of used memory */
   int64_t memory_used_size = 0;
-  //need to put the node into the proxy tree first, and then modify it
-  rt->dump_memory_info.add_memory_object(rt, INVALID_MEMORY_PTR, EntryObject,id, NULL,memory_used_size,NULL);
 
-  //refer to mark_children  JS_ComputeMemoryUsage
+  CDP_memory_str_val child_name;
+  /* init: need to put the node into the proxy tree(map) first, and then modify it */
+  rt->dump_memory_info.add_memory_object(rt, INVALID_MEMORY_PTR, EntryObject, id, NULL,memory_used_size, NULL);
+
+  /* refer to mark_children  JS_ComputeMemoryUsage */
   switch (gp->gc_obj_type) {
   case JS_GC_OBJ_TYPE_JS_OBJECT: {
     JSObject *p = (JSObject *)gp;
@@ -55841,8 +55863,10 @@ static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
       rt->dump_memory_info.add_memory_object_size_by_id(rt,id,memory_used_size);
       rt->dump_memory_info.add_memory_object_type_by_id(rt,id,EntryCode);
       if(b->debug.source_len) {
-        CDP_memory_str_val source_name = CDP_create_obj_name("source",0);
-        CDP_memory_str_val source_val = CDP_create_obj_name(b->debug.source,b->debug.source_len);
+        CDP_memory_str_val source_name;
+        CDP_create_obj_name(&source_name, "source",0);
+        CDP_memory_str_val source_val;
+        CDP_create_obj_name(&source_val, b->debug.source, b->debug.source_len);
         rt->dump_memory_info.add_memory_object(rt,id,EntryString,b->header.id,&source_val,1,NULL);
         rt->dump_memory_info.add_memory_object_child_by_id(rt,id,b->header.id,&source_name);
       }
@@ -55850,19 +55874,19 @@ static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
       if(b->func_name){
         f_name = CDP_get_obj_name(rt, b->func_name);
       }else{
-        f_name = CDP_create_obj_name("Function", 0);
+        CDP_create_obj_name(&f_name, "Function", 0);
       }
 
       rt->dump_memory_info.add_memory_object_obj_name_by_id(rt,id,&f_name);
       int i;
       // scan children
       for (i = 0; i < b->cpool_count; i++) {
-        CDP_memory_str_val child_name = CDP_create_obj_name(CDP_VALUE_DEFAULT_NAME,0);
+        CDP_create_obj_name(&child_name, CDP_VALUE_DEFAULT_NAME,0);
         CDP_add_value_to_proxies(rt,id, &(b->cpool[i]), &child_name,CDP_CHILD);
       }
       if (b->realm) {
-        CDP_memory_str_val child_name = CDP_create_obj_name(CDP_UNKNOW_DEFAULT_NAME,0);
-        CDP_add_proxies_obj_child(rt,id,b->realm->header.id,&child_name);
+        CDP_create_obj_name(&child_name, CDP_UNKNOW_DEFAULT_NAME,0);
+        rt->dump_memory_info.add_memory_object_child_by_id(rt,id,b->realm->header.id,&child_name);
       }
     }
 #endif
@@ -55876,7 +55900,7 @@ static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
     JSVarRef *var_ref = (JSVarRef *)gp;
     /* only detached variable referenced are taken into account */
     assert(var_ref->is_detached);
-    CDP_memory_str_val child_name = CDP_create_obj_name(CDP_VALUE_DEFAULT_NAME,0);
+    CDP_create_obj_name(&child_name, CDP_VALUE_DEFAULT_NAME,0);
     CDP_add_value_to_proxies(rt,id, var_ref->pvalue, &child_name,CDP_SELF);
 #endif
   } break;
@@ -55887,7 +55911,7 @@ static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
     rt->dump_memory_info.add_memory_object_type_by_id(rt,id,EntryClosure);
     if (s->is_active)
       CDP_add_async_func_to_proxies(rt, &s->func_state, id);
-    CDP_memory_str_val child_name = CDP_create_obj_name(CDP_VALUE_DEFAULT_NAME,0);
+    CDP_create_obj_name(&child_name, CDP_VALUE_DEFAULT_NAME,0);
     CDP_add_value_to_proxies(rt,id, &(s->resolving_funcs[0]), &child_name,CDP_CHILD);
     CDP_add_value_to_proxies(rt,id, &(s->resolving_funcs[1]), &child_name,CDP_CHILD);
   } break;
@@ -55897,15 +55921,16 @@ static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
     rt->dump_memory_info.add_memory_object_size_by_id(rt,id,memory_used_size);
     rt->dump_memory_info.add_memory_object_type_by_id(rt,id,EntryObjectShape);
     if (sh->proto != NULL) {
-      CDP_memory_str_val child_name = CDP_create_obj_name(CDP_UNKNOW_DEFAULT_NAME,0);
-      CDP_add_proxies_obj_child(rt,id, sh->proto->header.id, &child_name);
+      CDP_create_obj_name(&child_name, CDP_UNKNOW_DEFAULT_NAME,0);
+      rt->dump_memory_info.add_memory_object_child_by_id(rt,id, sh->proto->header.id, &child_name);
     }
   } break;
   case JS_GC_OBJ_TYPE_JS_CONTEXT:
   {
     memory_used_size += sizeof(JSContext);
     rt->dump_memory_info.add_memory_object_size_by_id(rt,id,memory_used_size);
-    CDP_memory_str_val ctx_name = CDP_create_obj_name("ctx",0);
+    CDP_memory_str_val ctx_name;
+    CDP_create_obj_name(&ctx_name, "ctx",0);
     rt->dump_memory_info.add_memory_object_value_by_id(rt,id,&ctx_name);
     JSContext *ctx = (JSContext *)gp;
     CDP_add_context_to_proxies(rt, ctx);
@@ -55917,8 +55942,8 @@ static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
 }
 
 void CDP_sacn_heap_in_memory(JSRuntime *rt){
-    struct list_head *el;
     int count = 0;
+    struct list_head *el = NULL;
     list_for_each(el, &rt->gc_obj_list) {
         JSGCObjectHeader *gp = list_entry(el, JSGCObjectHeader, link);
         CDP_get_gc_object_info(rt,gp);
