@@ -1,22 +1,23 @@
 
 #include "quickjs-memorydump.h"
 #include "quickjs-debugger.h"
+
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
+
 void CDP_start_memory_tracking(JSRuntime *rt) {
   getDumpMemoryInfo(rt)->is_started_memory_tracking = 1;
 }
+
 void CDP_stop_memory_tracking(JSRuntime *rt) {
   getDumpMemoryInfo(rt)->is_started_memory_tracking = 0;
 }
 
-CDP_memory_str_val CDP_create_obj_name(const char *str, int len) {
-  CDP_memory_str_val name;
-  name.flag = 0;
-  name.name = str;
+void CDP_create_obj_name(CDP_memory_str_val* name, const char *str, int len) {
+  name->flag = 0;
+  name->name = str;
   if (len > 0) {
-    name.flag = STORE_VAL(len, 0);
+    name->flag = STORE_VAL(len, 0);
   }
-  return name;
 }
 
 CDP_memory_str_val CDP_get_obj_name(JSRuntime *rt, JSAtom atom) {
@@ -36,13 +37,6 @@ static int64_t memoryId = 200;
 int64_t getDumpMemoryId(void){
   return memoryId++;
 };
-
-void CDP_add_proxies_obj_child(JSRuntime *rt, memory_object_id parent_id,
-                               memory_object_id child_id,
-                               CDP_memory_str_val *child_name) {
-  getDumpMemoryInfo(rt)->add_memory_object_child_by_id(rt, parent_id, child_id,
-                                                       child_name);
-}
 
 void CDP_get_stats_update_info(JSRuntime *rt, JSGCObjectHeader *h) {
   int64_t count = 1;
