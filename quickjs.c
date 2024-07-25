@@ -57096,19 +57096,10 @@ static void profile_array_sort_by_total_time_spent_desc(ProfileArray* arr)
     quick_sort(arr, 0, arr->len - 1);
 }
 
-void dump_cpu_profiling_data2file(JSRuntime *rt) {
-    struct timeval tv;
-    char buf1[64], buf2[128];
-    struct tm *ti;
-
-    gettimeofday(&tv, NULL);
-    ti = localtime(&tv.tv_sec);
-
-    strftime(buf1, sizeof(buf1), "Trace.%Y%m%d.%H%M%S", ti);
-    snprintf(buf2, sizeof(buf2), "%s.%03ld", buf1, tv.tv_usec / 1000);
-
-    FILE *fp = fopen(buf2, "w");
-    fprintf(fp, "%s\t%s\t%s\t%s\t%s\t%s\n", "[Line_Number", "Call_Count", "Time_Spent_Count", "Time_Spent(ms)", "Total_Time_Spent(ms)", "Func_Name]");
+void dump_cpu_profiling_data2file(JSRuntime *rt, const char* pkg_name) {
+    char buf1[128];
+    snprintf(buf1, sizeof(buf1), "/data/app/perf.%s.json", pkg_name);
+    FILE *fp = fopen(buf1, "w");
 
     /* unique data */
     ProfileArray uniq_arr;
@@ -57136,13 +57127,33 @@ void dump_cpu_profiling_data2file(JSRuntime *rt) {
     }
     /* sort data */
     profile_array_sort_by_total_time_spent_desc(&uniq_arr);
-    /* dump data */
+    /* dump cpu profiling data, save it as a perf.pkg_name.json file */
+    fprintf(fp, "[\n");
     for (int i = 0; i < uniq_arr.len; i++) {
       JSObjectFunc* func = profile_array_el(&uniq_arr, JSObjectFunc, i);
       JSFunctionBytecode *b = func->function_bytecode;
-      char buf[ATOM_GET_STR_BUF_SIZE];
-      fprintf(fp, "[%d\t\t\t\t%zu\t\t\t%zu\t\t\t\t\t%zu\t\t\t\t%0.2f\t\t\t\t\t%s]\n", b->debug.line_num, b->debug.call_count, b->debug.time_spent_count, b->debug.time_spent, b->debug.total_time_spent, JS_AtomGetStrRT(rt, buf, sizeof(buf), b->func_name));
+      char buf[64];
+      const char* func_name = NULL;
+      if(b->func_name < rt->atom_size) {
+        func_name= JS_AtomGetStrRT(rt, buf, sizeof(buf), b->func_name);
+      }
+      if(i != uniq_arr.len - 1) {
+        fprintf(fp, "   {\n");
+        fprintf(fp, "       \"functionName\":\"%s\",\n", func_name);
+        fprintf(fp, "       \"lineNumber\":%d,\n", b->debug.line_num);
+        fprintf(fp, "       \"callCount\":%d,\n", b->debug.call_count);
+        fprintf(fp, "       \"totalTimeSpent\":%f\n", b->debug.total_time_spent);
+        fprintf(fp, "   },\n");
+      } else {
+        fprintf(fp, "   {\n");
+        fprintf(fp, "       \"functionName\":\"%s\",\n", func_name);
+        fprintf(fp, "       \"lineNumber\":%d,\n", b->debug.line_num);
+        fprintf(fp, "       \"callCount\":%d,\n", b->debug.call_count);
+        fprintf(fp, "       \"totalTimeSpent\":%f\n", b->debug.total_time_spent);
+        fprintf(fp, "   }\n");
+      }
     }
+    fprintf(fp, "]\n");
 
     fclose(fp);
 }
@@ -57164,9 +57175,9 @@ JSValue js_start_cpu_profiling(JSContext *ctx, JSValueConst this_val, int argc,
 }
 
 JSValue js_stop_cpu_profiling(JSContext *ctx, JSValueConst this_val, int argc,
-                              JSValueConst *argv) {
+                              JSValueConst *argv, const char* pkg_name) {
     JSRuntime *rt = ctx->rt;
-    dump_cpu_profiling_data2file(rt);
+    dump_cpu_profiling_data2file(rt, pkg_name);
     rt->is_profile_calls_enabled = 0;
     return JS_NULL;
 }
@@ -57177,9 +57188,9 @@ JSValue JS_START_CPU_PROFILING(JSContext *ctx) {
     return js_start_cpu_profiling(ctx, val, 0, NULL);
 }
 
-JSValue JS_STOP_CPU_PROFILING(JSContext *ctx) {
+JSValue JS_STOP_CPU_PROFILING(JSContext *ctx, const char* pkg_name) {
     JSValueConst val = JS_NewString(ctx, "");
-    return js_stop_cpu_profiling(ctx, val, 0, NULL);
+    return js_stop_cpu_profiling(ctx, val, 0, NULL, pkg_name);
 }
 
 #endif

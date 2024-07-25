@@ -1158,7 +1158,7 @@ JSValue JS_DUMP_MEM(JSContext *ctx);
 
 #ifdef CONFIG_QUICKJS_CPUPROFILING
 JSValue JS_START_CPU_PROFILING(JSContext *ctx);
-JSValue JS_STOP_CPU_PROFILING(JSContext *ctx);
+JSValue JS_STOP_CPU_PROFILING(JSContext *ctx, const char* pkg_name);
 #endif
 /*----------------------------------------------------*/
 
