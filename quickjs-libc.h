@@ -52,11 +52,6 @@ void js_std_promise_rejection_tracker(JSContext *ctx, JSValueConst promise,
                                       JS_BOOL is_handled, void *opaque);
 void js_std_set_worker_new_context_func(JSContext *(*func)(JSRuntime *rt));
 
-#ifdef CONFIG_QUICKJS_HEAPDUMP
-JSValue js_gcdump_objects(JSContext *ctx, JSValueConst this_val, int argc,
-                          JSValueConst *argv);
-#endif
-
 #ifdef CONFIG_QUICKJS_CPUPROFILING
 JSValue js_start_cpu_profiling(JSContext *ctx, JSValueConst this_val, int argc,
                             JSValueConst *argv);
