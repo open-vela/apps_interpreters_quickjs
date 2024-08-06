@@ -3760,10 +3760,6 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv)
                       JS_NewCFunction(ctx, js_print, "print", 1));
     JS_SetPropertyStr(ctx, global_obj, "__loadScript",
                       JS_NewCFunction(ctx, js_loadScript, "__loadScript", 1));
-#ifdef CONFIG_QUICKJS_HEAPDUMP
-    JS_SetPropertyStr(ctx, global_obj, "__js_gcdump_objects",
-                      JS_NewCFunction(ctx, js_gcdump_objects, "__js_gcdump_objects", 0));
-#endif
 #ifdef CONFIG_QUICKJS_CPUPROFILING
     JS_SetPropertyStr(ctx, global_obj, "__js_start_cpu_profiling",
                       JS_NewCFunction(ctx, js_start_cpu_profiling, "__js_start_cpu_profiling", 0));
