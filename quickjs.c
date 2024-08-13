@@ -56284,20 +56284,20 @@ void dump_cpu_profiling_data2file(JSRuntime *rt, const char* pkg_name) {
       JSObjectFunc* func = profile_array_el(&uniq_arr, JSObjectFunc, i);
       JSFunctionBytecode *b = func->function_bytecode;
       char buf[64];
-      const char* func_name = NULL;
-      if(b->func_name < rt->atom_size) {
-        func_name= JS_AtomGetStrRT(rt, buf, sizeof(buf), b->func_name);
+      const char* file_name = NULL;
+      if(b->debug.filename < rt->atom_size) {
+        file_name = JS_AtomGetStrRT(rt, buf, sizeof(buf), b->debug.filename);
       }
       if(i != uniq_arr.len - 1) {
         fprintf(fp, "   {\n");
-        fprintf(fp, "       \"functionName\":\"%s\",\n", func_name);
+        fprintf(fp, "       \"fileName\":\"%s\",\n", file_name);
         fprintf(fp, "       \"lineNumber\":%d,\n", b->debug.line_num);
         fprintf(fp, "       \"callCount\":%d,\n", b->debug.call_count);
         fprintf(fp, "       \"totalTimeSpent\":%f\n", b->debug.total_time_spent);
         fprintf(fp, "   },\n");
       } else {
         fprintf(fp, "   {\n");
-        fprintf(fp, "       \"functionName\":\"%s\",\n", func_name);
+        fprintf(fp, "       \"fileName\":\"%s\",\n", file_name);
         fprintf(fp, "       \"lineNumber\":%d,\n", b->debug.line_num);
         fprintf(fp, "       \"callCount\":%d,\n", b->debug.call_count);
         fprintf(fp, "       \"totalTimeSpent\":%f\n", b->debug.total_time_spent);
