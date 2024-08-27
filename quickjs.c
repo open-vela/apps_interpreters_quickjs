@@ -1883,6 +1883,7 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
     rt->dump_memory_info.is_started_memory_tracking = 0;
     rt->dump_memory_info.is_memory_tracking_on_timer_started = 0;
+    rt->debugger_info.currCtx = NULL;
 #endif
     if (init_shape_hash(rt))
         goto fail;
@@ -2429,6 +2430,9 @@ JSContext *JS_NewContext(JSRuntime *rt)
     JS_AddIntrinsicPromise(ctx);
 #ifdef CONFIG_BIGNUM
     JS_AddIntrinsicBigInt(ctx);
+#endif
+#ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
+    rt->debugger_info.currCtx = ctx;
 #endif
     return ctx;
 }
