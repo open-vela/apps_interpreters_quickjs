@@ -12,23 +12,24 @@ void CDP_stop_memory_tracking(JSRuntime *rt) {
   getDumpMemoryInfo(rt)->is_started_memory_tracking = 0;
 }
 
-void CDP_create_obj_name(CDP_memory_str_val* name, const char *str, int len) {
-  name->flag = 0;
+void CDP_create_obj_name(CDP_memory_str_val* name, const char *str) {
+  CDPFreeString flag = CdpFreeNo;
+  name->flag = flag;
   name->name = str;
-  if (len > 0) {
-    name->flag = STORE_VAL(len, 0);
-  }
 }
 
 CDP_memory_str_val CDP_get_obj_name(JSRuntime *rt, JSAtom atom) {
-  CDP_memory_str_val name;
-  name.flag = 0;
+  CDPFreeString flag = CdpFreeYes;
+  CDP_memory_str_val name = {
+    .flag = flag,
+    .name = NULL,
+  };
+
   if (atom) {
     name.name = JS_AtomToCString(js_debugger_info(rt)->currCtx, atom);
-    name.flag = STORE_VAL(0, 1);
   } else {
     name.name = CDP_UNKNOW_DEFAULT_NAME;
-    name.flag = STORE_VAL(0, 0);
+    name.flag = CdpFreeNo;
   }
   return name;
 }

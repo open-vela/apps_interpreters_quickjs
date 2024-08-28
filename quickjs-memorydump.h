@@ -23,13 +23,11 @@ extern "C" {
 typedef int64_t memory_object_id;
 typedef int Self_or_child;
 
-#define IS_FREE_MASK 0x1
-#define GET_NEED_FREE(val) (val & IS_FREE_MASK)
+typedef enum CDPFreeString {
+  CdpFreeYes = 0,
+  CdpFreeNo = 1,
+} CDPFreeString;
 
-#define CLEAR_NEED_FREE(val) ((val) = (((val) >> 1) << 1))
-
-#define GET_LENGTH(val) (val >> 1)
-#define STORE_VAL(len, need_free) ((int)(len << 1 | need_free))
 typedef struct CDP_memory_str_val {
   int flag;
   const char *name;
@@ -130,7 +128,7 @@ void CDP_get_stats_update_info(JSRuntime *rt, JSGCObjectHeader *h);
 // Triggered when the memory object in the engine is released
 void CDP_remove_gc_obj(JSRuntime *rt, JSGCObjectHeader *h);
 // Create Memory Object Name
-void CDP_create_obj_name(CDP_memory_str_val* name, const char *str, int len);
+void CDP_create_obj_name(CDP_memory_str_val* name, const char *str);
 // Get Memory Object Name
 CDP_memory_str_val CDP_get_obj_name(JSRuntime *rt, JSAtom atom);
 // Convert int to string
