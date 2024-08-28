@@ -55578,10 +55578,10 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
             {
               //If the operation is to add a child, the child type needs to be checked. If the operation is cfunction, the child type needs to be checked in gc_ There is nothing in the list. You need to manually add the node to the proxy tree
               //If you operate on yourself, you need to change your type
+              JSObject* p = JS_VALUE_GET_OBJ(*val);
               if(self_or_child == CDP_CHILD){
-                rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id, (memory_object_id)(uintptr_t)JS_VALUE_GET_PTR(*val),child_name);
+                rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id,p->header.id,child_name);
               }
-              JSObject* p = JS_VALUE_GET_PTR(*val);
               switch(p->class_id) {
                 //@TODO There may be other types to deal with
                 case JS_CLASS_C_FUNCTION:         /* u.array | length */
@@ -55589,7 +55589,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
                         CDP_memory_str_val self_name;
                         CDP_create_obj_name(&self_name, CDP_VARREF_NATIVE_FINCTION_NAME,0);
                         if (self_or_child == CDP_CHILD) {
-                            rt->dump_memory_info.add_memory_object(rt, parent_id, EntryNative,(memory_object_id)(uintptr_t)JS_VALUE_GET_PTR(*val),&self_name,child_size,NULL);
+                            rt->dump_memory_info.add_memory_object(rt,parent_id,EntryNative,p->header.id,&self_name,child_size,NULL);
                         }
                         if(self_or_child == CDP_SELF){
                             // CDP_memory_str_val self_name = CDP_create_obj_name(&CDP_VARREF_NATIVE_FINCTION_NAME,
@@ -55605,8 +55605,9 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
             break;
         case JS_TAG_FUNCTION_BYTECODE:
             {
+              JSFunctionBytecode *b = JS_VALUE_GET_PTR(val);
               if(self_or_child == CDP_CHILD){
-                rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id, (memory_object_id)(uintptr_t)JS_VALUE_GET_PTR(*val),child_name);
+                rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id,b->header.id,child_name);
               }
             }
             break;
@@ -55623,7 +55624,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
           child_val.flag = 0;
           memory_object_id child_id = getDumpMemoryId();
           if(self_or_child == CDP_CHILD){
-            rt->dump_memory_info.add_memory_object(rt,1,EntryHeapNumber,child_id,&child_val,child_size,NULL);
+            rt->dump_memory_info.add_memory_object(rt,parent_id,EntryHeapNumber,child_id,&child_val,child_size,NULL);
             rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id,child_id,child_name);
 
           }
@@ -55643,7 +55644,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
           memory_object_id child_id = getDumpMemoryId();
           child_val.flag = 0;
           if(self_or_child == CDP_CHILD){
-            rt->dump_memory_info.add_memory_object(rt,1,EntryHeapNumber,child_id,&child_val,child_size,NULL);
+            rt->dump_memory_info.add_memory_object(rt,parent_id,EntryHeapNumber,child_id,&child_val,child_size,NULL);
             rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id,child_id,child_name);
           }
           if(self_or_child == CDP_SELF){
@@ -55660,7 +55661,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
           child_val.flag = 0;
           memory_object_id child_id = getDumpMemoryId();
           if(self_or_child == CDP_CHILD){
-            rt->dump_memory_info.add_memory_object(rt,1,EntryHeapNumber,child_id,&child_val,child_size,NULL);
+            rt->dump_memory_info.add_memory_object(rt,parent_id,EntryHeapNumber,child_id,&child_val,child_size,NULL);
             rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id,child_id,child_name);
 
           }
@@ -55683,7 +55684,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
           if(self_or_child == CDP_CHILD){
             //Release at the second time
             child_val.flag = STORE_VAL(0, 1);
-            rt->dump_memory_info.add_memory_object(rt,1,EntryString,child_id,&child_val,child_size,NULL);
+            rt->dump_memory_info.add_memory_object(rt,parent_id,EntryString,child_id,&child_val,child_size,NULL);
             rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id,child_id,child_name);
           }
           //Modify yourself
@@ -55701,7 +55702,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
           memory_object_id child_id = getDumpMemoryId();
           if(self_or_child == CDP_CHILD){
             child_val.flag = 0;
-            rt->dump_memory_info.add_memory_object(rt,1,EntrySymbol,child_id,&child_val,child_size,NULL);
+            rt->dump_memory_info.add_memory_object(rt,parent_id,EntrySymbol,child_id,&child_val,child_size,NULL);
             child_val.flag = STORE_VAL(0, 1);
             rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id,child_id,child_name);
           }
@@ -55717,7 +55718,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
           child_val.flag = 0;
           memory_object_id child_id = getDumpMemoryId();
           if(self_or_child == CDP_CHILD){
-            rt->dump_memory_info.add_memory_object(rt,1,EntrySymbol,child_id,&child_val,child_size,NULL);
+            rt->dump_memory_info.add_memory_object(rt,parent_id,EntrySymbol,child_id,&child_val,child_size,NULL);
             rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id,child_id,child_name);
           }
           if(self_or_child == CDP_SELF){
@@ -55731,7 +55732,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
           child_val.flag = 0;
           memory_object_id child_id = getDumpMemoryId();
           if(self_or_child == CDP_CHILD){
-            rt->dump_memory_info.add_memory_object(rt,1,EntrySymbol,child_id,&child_val,child_size,NULL);
+            rt->dump_memory_info.add_memory_object(rt,parent_id,EntrySymbol,child_id,&child_val,child_size,NULL);
             rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id,child_id,child_name);
           }
           if(self_or_child == CDP_SELF){
