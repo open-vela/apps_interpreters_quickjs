@@ -55488,6 +55488,9 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
           }
           break;
       case JS_CLASS_BYTECODE_FUNCTION: /* u.func */
+      case JS_CLASS_GENERATOR_FUNCTION:
+      case JS_CLASS_ASYNC_FUNCTION:
+      case JS_CLASS_ASYNC_GENERATOR_FUNCTION:
         {
             JSFunctionBytecode *b = p->u.func.function_bytecode;
             memory_used_size += sizeof(JSObject);
@@ -55813,16 +55816,26 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
 
 static void CDP_add_async_func_to_proxies(JSRuntime *rt,JSAsyncFunctionState *s,memory_object_id parent_id){
     JSStackFrame *sf = &s->frame;
+    JSValue *sp;
     CDP_memory_str_val child_name;
-    CDP_create_obj_name(&child_name, CDP_VALUE_DEFAULT_NAME);
-    CDP_add_value_to_proxies(rt,parent_id,&(sf->cur_func),&child_name,CDP_CHILD);
-    CDP_add_value_to_proxies(rt,parent_id,&(s->this_val),&child_name,CDP_CHILD);
-    //@TODO Currently, sf ->cur_ A virtual node can be added after the value on the sp is leveled to the parent node
-    if (sf->cur_sp) {
-        for(JSValue *sp = sf->arg_buf; sp < sf->cur_sp; sp++){
-            CDP_add_value_to_proxies(rt,parent_id,&(sf->cur_func),&child_name,CDP_CHILD);
+    CDP_create_obj_name(&child_name, "stack_frame");
+    memory_object_id child_id = getDumpMemoryId();
+    rt->dump_memory_info.add_memory_object(rt,parent_id,EntryObject,child_id,NULL,sizeof(*sf),&child_name);
+    rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id,child_id,&child_name);
+    
+    CDP_create_obj_name(&child_name,CDP_VALUE_DEFAULT_NAME);
+    if (!s->is_completed) {
+        CDP_add_value_to_proxies(rt,parent_id,&(s->this_val),&child_name,CDP_CHILD);
+        CDP_add_value_to_proxies(rt,child_id,&(sf->cur_func),&child_name,CDP_CHILD);
+        if (sf->cur_sp) {
+            for(sp = sf->arg_buf; sp < sf->cur_sp; sp++) {
+                CDP_add_value_to_proxies(rt,child_id,sp,&child_name,CDP_CHILD);
+            }
         }
     }
+
+    CDP_add_value_to_proxies(rt,parent_id,&(s->resolving_funcs[0]),&child_name,CDP_CHILD);
+    CDP_add_value_to_proxies(rt,parent_id,&(s->resolving_funcs[1]),&child_name,CDP_CHILD);
 }
 //Traverse the objects in the module module
 static void CDP_add_module_to_proxies(JSRuntime *rt,JSModuleDef *m,memory_object_id parent_id){
@@ -55959,19 +55972,18 @@ static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
         if(var_ref->pvalue && (var_ref->pvalue == &var_ref->value)) {
             CDP_add_value_to_proxies(rt,id,var_ref->pvalue,&child_name,CDP_CHILD);
         }
+    } else if (var_ref->async_func) {
+        memory_object_id child_id = var_ref->async_func->header.id;
+        CDP_create_obj_name(&child_name, "async_function");
+        rt->dump_memory_info.add_memory_object_child_by_id(rt,id,child_id,&child_name);
     }
   } break;
   case JS_GC_OBJ_TYPE_ASYNC_FUNCTION: {
-    // TODO: CDP needs to be adapted
-    // JSAsyncFunctionData *s = (JSAsyncFunctionData *)gp;
-    // memory_used_size += sizeof(JSAsyncFunctionData);
-    // rt->dump_memory_info.add_memory_object_size_by_id(rt,id,memory_used_size);
-    // rt->dump_memory_info.add_memory_object_type_by_id(rt,id,EntryClosure);
-    // if (s->is_active)
-    //  CDP_add_async_func_to_proxies(rt, &s->func_state, id);
-    // CDP_create_obj_name(&child_name, CDP_VALUE_DEFAULT_NAME,0);
-    // CDP_add_value_to_proxies(rt,id, &(s->resolving_funcs[0]), &child_name,CDP_CHILD);
-    // CDP_add_value_to_proxies(rt,id, &(s->resolving_funcs[1]), &child_name,CDP_CHILD);
+    JSAsyncFunctionState *s = (JSAsyncFunctionState *)gp;
+    CDP_create_obj_name(&child_name, "async_function");
+    memory_used_size += sizeof(JSAsyncFunctionState);
+    rt->dump_memory_info.add_memory_object(rt, INVALID_MEMORY_PTR, EntrySynthetic, id, &child_name, memory_used_size, NULL);
+    CDP_add_async_func_to_proxies(rt, s, id);
   } break;
   case JS_GC_OBJ_TYPE_SHAPE: {
     JSShape *sh = (JSShape *)gp;
