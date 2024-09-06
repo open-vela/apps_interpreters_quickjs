@@ -55305,7 +55305,7 @@ static void CDP_function_bytecode(JSRuntime* rt, JSFunctionBytecode *b) {
     }
 
     rt->dump_memory_info.add_memory_object(rt,INVALID_MEMORY_PTR, EntryCode, id, &f_name, memory_used_size,NULL);
-    if (f_name.flag == CdpFreeYes) {
+    if (f_name.flag == CDP_FREE_YES) {
         JS_FreeCString(rt->debugger_info.currCtx, f_name.name);
     }
 
@@ -55317,7 +55317,7 @@ static void CDP_function_bytecode(JSRuntime* rt, JSFunctionBytecode *b) {
             name = CDP_get_obj_name(rt, var->var_name);
             memory_object_id child_id = getDumpMemoryId();
             rt->dump_memory_info.add_memory_object(rt,id,EntryString,child_id, &name,sizeof(*var),NULL);
-            if (name.flag == CdpFreeYes) {
+            if (name.flag == CDP_FREE_YES) {
                 JS_FreeCString(rt->debugger_info.currCtx, name.name);
             }
         }
@@ -55340,7 +55340,7 @@ static void CDP_function_bytecode(JSRuntime* rt, JSFunctionBytecode *b) {
             memory_object_id child_id = getDumpMemoryId();
             name = CDP_get_obj_name(rt, cvar->var_name);
             rt->dump_memory_info.add_memory_object(rt,id, EntryClosure, child_id, &name, sizeof(*cvar),NULL);
-            if (name.flag == CdpFreeYes) {
+            if (name.flag == CDP_FREE_YES) {
                 JS_FreeCString(rt->debugger_info.currCtx, name.name);
             }
         }
@@ -55425,7 +55425,7 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
               // value of obeject
               CDP_add_value_to_proxies(rt,id, &(pr->u.value), &child_name, CDP_CHILD);
             }
-            if (child_name.flag == CdpFreeYes) {
+            if (child_name.flag == CDP_FREE_YES) {
                 JS_FreeCString(ctx, child_name.name);
             }
           prs++;
@@ -55494,27 +55494,31 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
             CDP_memory_str_val child_name;
             child_name = CDP_get_obj_name(rt, b->func_name);
             rt->dump_memory_info.add_memory_object_child_by_id(rt,id,b->header.id,&child_name);
-            if (child_name.flag == CdpFreeYes) {
+            if (child_name.flag == CDP_FREE_YES) {
                 JS_FreeCString(ctx, child_name.name);
             }
-#ifdef CONFIG_QUICKJS_HEAPDUMP
-#else
-            /* home_object: object will be accounted for in list scan */
+
             JSVarRef **var_refs = p->u.func.var_refs;
+            /* home_object: object will be accounted for in list scan */
             if (var_refs) {
+                CDP_memory_str_val child_name;
                 for (int i = 0; i < b->closure_var_count; i++) {
-                  CDP_memory_str_val child_name;
-                  CDP_create_obj_name(&child_name, "func_val");
-                  if (var_refs[i]) {
-                    if (var_refs[i]->pvalue == &var_refs[i]->value) {
-                      /* potential multiple count */
-                        child_name = CDP_get_obj_name(rt,b->closure_var[i].var_name);
-                        CDP_add_value_to_proxies(rt,id,&(var_refs[i]->value),&child_name,CDP_CHILD);
-                    }
+                  if (var_refs[i] && (var_refs[i]->pvalue == &var_refs[i]->value)) {
+                    CDP_create_obj_name(&child_name, CDP_VARREF_DEFAULT_NAME);
+                    rt->dump_memory_info.add_memory_object_child_by_id(rt,id, var_refs[i]->header.id, &child_name);
                   }
                 }
             }
-#endif
+
+            if (p->u.func.home_object) {
+                JSObject* home_object = p->u.func.home_object;
+                JSAtom obj_atom_name = rt->class_array[home_object->class_id].class_name;
+                CDP_memory_str_val obj_name = CDP_get_obj_name(rt, obj_atom_name);
+                rt->dump_memory_info.add_memory_object_child_by_id(rt,id, home_object->header.id, &obj_name);
+                if (obj_name.flag == CDP_FREE_YES) {
+                    JS_FreeCString(ctx, obj_name.name);
+                }
+            }
         }
         break;
       case JS_CLASS_BOUND_FUNCTION:    /* u.bound_function */
@@ -55771,7 +55775,7 @@ static void CDP_add_value_to_proxies(JSRuntime *rt,memory_object_id parent_id, J
           if(self_or_child == CDP_SELF){
             rt->dump_memory_info.add_memory_object_value_by_id(rt,parent_id,&child_val);
           }
-          if (child_val.flag == CdpFreeYes) {
+          if (child_val.flag == CDP_FREE_YES) {
             JS_FreeCString(rt->debugger_info.currCtx, child_val.name);
           }
         }
@@ -55939,22 +55943,23 @@ static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
     /*the template objects can be part of a cycle*/
     {
       JSFunctionBytecode *b = (JSFunctionBytecode *)gp;
-      CDP_function_bytecode(rt, b); 
+      CDP_function_bytecode(rt, b);
     }
     break;
   case JS_GC_OBJ_TYPE_VAR_REF: {
-    memory_used_size += sizeof(JSVarRef);
-    rt->dump_memory_info.add_memory_object(rt, INVALID_MEMORY_PTR, EntryObject, id, NULL,memory_used_size, NULL);
-    rt->dump_memory_info.add_memory_object_size_by_id(rt,id,memory_used_size);
-    rt->dump_memory_info.add_memory_object_type_by_id(rt,id,EntryString);
-#ifdef CONFIG_QUICKJS_HEAPDUMP
-#else
-    JSVarRef *var_ref = (JSVarRef *)gp;
+    CDP_create_obj_name(&child_name, CDP_VARREF_DEFAULT_NAME);
+    memory_used_size += sizeof(JSVarRef)/gp->ref_count;
+    rt->dump_memory_info.add_memory_object(rt, INVALID_MEMORY_PTR, EntryString, id, &child_name, memory_used_size, NULL);
+
     /* only detached variable referenced are taken into account */
-    assert(var_ref->is_detached);
+    // assert(var_ref->is_detached);
+    JSVarRef *var_ref = (JSVarRef *)gp;
     CDP_create_obj_name(&child_name, CDP_VALUE_DEFAULT_NAME);
-    CDP_add_value_to_proxies(rt,id, var_ref->pvalue, &child_name,CDP_SELF);
-#endif
+    if (var_ref->is_detached) {
+        if(var_ref->pvalue && (var_ref->pvalue == &var_ref->value)) {
+            CDP_add_value_to_proxies(rt,id,var_ref->pvalue,&child_name,CDP_CHILD);
+        }
+    }
   } break;
   case JS_GC_OBJ_TYPE_ASYNC_FUNCTION: {
     // TODO: CDP needs to be adapted
