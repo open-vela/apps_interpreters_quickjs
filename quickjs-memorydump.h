@@ -24,8 +24,8 @@ typedef int64_t memory_object_id;
 typedef int Self_or_child;
 
 typedef enum CDPFreeString {
-  CdpFreeYes = 0,
-  CdpFreeNo = 1,
+  CDP_FREE_NO = 0,
+  CDP_FREE_YES = 1,
 } CDPFreeString;
 
 typedef struct CDP_memory_str_val {

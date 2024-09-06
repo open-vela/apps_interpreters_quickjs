@@ -13,13 +13,13 @@ void CDP_stop_memory_tracking(JSRuntime *rt) {
 }
 
 void CDP_create_obj_name(CDP_memory_str_val* name, const char *str) {
-  CDPFreeString flag = CdpFreeNo;
+  CDPFreeString flag = CDP_FREE_NO;
   name->flag = flag;
   name->name = str;
 }
 
 CDP_memory_str_val CDP_get_obj_name(JSRuntime *rt, JSAtom atom) {
-  CDPFreeString flag = CdpFreeYes;
+  CDPFreeString flag = CDP_FREE_YES;
   CDP_memory_str_val name = {
     .flag = flag,
     .name = NULL,
@@ -29,7 +29,7 @@ CDP_memory_str_val CDP_get_obj_name(JSRuntime *rt, JSAtom atom) {
     name.name = JS_AtomToCString(js_debugger_info(rt)->currCtx, atom);
   } else {
     name.name = CDP_UNKNOW_DEFAULT_NAME;
-    name.flag = CdpFreeNo;
+    name.flag = CDP_FREE_NO;
   }
   return name;
 }
