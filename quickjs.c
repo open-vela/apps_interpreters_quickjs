@@ -55391,11 +55391,19 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
     switch(p->class_id) {
       case JS_CLASS_OBJECT:
       {
+        if (!p->prop) break;
+
         JSShape* sh = p->shape;
+        if (!sh->is_hashed) {
+            CDP_memory_str_val array_shape;
+            CDP_create_obj_name(&array_shape, "JSShape");
+            rt->dump_memory_info.add_memory_object_child_by_id(rt,id,sh->header.id,&array_shape);
+        }
+
         JSShapeProperty* prs = get_shape_prop(sh);
         CDP_memory_str_val child_name;
-        //Type Attribute Size
         memory_used_size += sizeof(JSObject);
+
         //scan children
         for (int i = 0; i < sh->prop_count; i++) {
             child_name = CDP_get_obj_name(rt,prs->atom);
@@ -55939,6 +55947,14 @@ static void CDP_add_context_to_proxies(JSRuntime *rt,JSContext *ctx){
     }
 }
 
+static void CDP_compute_jsshapeprop_size(JSRuntime *rt, JSShapeProperty* prop, memory_object_id parent_id) {
+    CDP_memory_str_val child_name;
+    child_name = CDP_get_obj_name(rt, prop->atom);
+    memory_object_id id = getDumpMemoryId();
+    rt->dump_memory_info.add_memory_object(rt,parent_id,EntryObject,id,NULL,sizeof(JSShapeProperty),&child_name);
+    rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id,id,&child_name);
+}
+
 static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
   /* Unique ID of proxy object */
   memory_object_id id = gp->id;
@@ -55988,12 +56004,18 @@ static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
   case JS_GC_OBJ_TYPE_SHAPE: {
     JSShape *sh = (JSShape *)gp;
     memory_used_size += sizeof(JSShape);
-    rt->dump_memory_info.add_memory_object(rt, INVALID_MEMORY_PTR, EntryObject, id, NULL,memory_used_size, NULL);
-    rt->dump_memory_info.add_memory_object_size_by_id(rt,id,memory_used_size);
-    rt->dump_memory_info.add_memory_object_type_by_id(rt,id,EntryObjectShape);
-    if (sh->proto != NULL) {
-      CDP_create_obj_name(&child_name, CDP_UNKNOW_DEFAULT_NAME);
-      rt->dump_memory_info.add_memory_object_child_by_id(rt,id, sh->proto->header.id, &child_name);
+    CDP_create_obj_name(&child_name, "JSShape");
+    rt->dump_memory_info.add_memory_object(rt, INVALID_MEMORY_PTR, EntryObjectShape, id, &child_name, memory_used_size, NULL);
+    
+    if (!sh->is_hashed) {
+        int hash_size = sh->prop_hash_mask + 1;
+        for (int i = 0; i < sh->prop_size; ++i) {
+            CDP_compute_jsshapeprop_size(rt, &sh->prop[i], id);
+        }
+        CDP_create_obj_name(&child_name, "hash");
+        memory_object_id child_id = getDumpMemoryId();
+        rt->dump_memory_info.add_memory_object(rt, id,EntryHeapNumber,child_id,&child_name,hash_size * sizeof(uint32_t), NULL);
+        rt->dump_memory_info.add_memory_object_child_by_id(rt,id,id,&child_name);
     }
   } break;
   case JS_GC_OBJ_TYPE_JS_CONTEXT:
