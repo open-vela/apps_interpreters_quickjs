@@ -55571,21 +55571,15 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
         break;
       case JS_CLASS_REGEXP:            /* u.regexp */
           {
-            JSValue regexp_obj = JS_MKPTR(JS_TAG_OBJECT, p);
-            JSValue regex_string_obj = js_regexp_toString(rt->debugger_info.currCtx, regexp_obj, 0, NULL);
-            if(JS_IsString(regex_string_obj)) {
-              CDP_memory_str_val val = { .name = NULL };
-              val.name = JS_ToCString(rt->debugger_info.currCtx, regex_string_obj);
-              int64_t child_size = sizeof(JSRegExp);
-              // obj_name = CDP_get_obj_name(rt, obj_atom_name);
-              if(CDP_dump_string_info(rt,p->u.regexp.pattern,&child_size,&val)){
-                rt->dump_memory_info.add_memory_object(rt,id,EntryString,p->header.id,&val,child_size,NULL);
-              }
-              type = EntryRegExp;
-              JS_FreeCString(rt->debugger_info.currCtx, val.name);
+            memory_used_size += sizeof(JSObject);
+            CDP_memory_str_val val;
+            CDP_create_obj_name(&val, "regexp_pattern");
+            JSValue pattern = JS_MKPTR(JS_TAG_STRING, p->u.regexp.pattern);
+            CDP_add_value_to_proxies(rt, id, &pattern, &val, CDP_CHILD);
 
-            }
-            JS_FreeValue(rt->debugger_info.currCtx, regex_string_obj);
+            CDP_create_obj_name(&val, "regexp_bytecode");
+            JSValue bt = JS_MKPTR(JS_TAG_STRING, p->u.regexp.bytecode);
+            CDP_add_value_to_proxies(rt, id, &bt, &val, CDP_CHILD);
           }
           break;
       case JS_CLASS_FOR_IN_ITERATOR:   /* u.for_in_iterator */
