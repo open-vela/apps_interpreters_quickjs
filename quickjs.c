@@ -55444,15 +55444,13 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
       case JS_CLASS_ARGUMENTS:         /* u.array | length */
         {
             type = EntryArray;
-            // obj_name = CDP_get_obj_name(rt, obj_atom_name);
             if (p->fast_array) {
               if (p->u.array.u.values) {
-                  memory_used_size = p->u.array.count *
-                      sizeof(*p->u.array.u.values);
+                  memory_used_size = sizeof(JSObject);
 
                   for (int i = 0; i < p->u.array.count; i++) {
-                      char name[7] = {0};
-                      CDP_int_to_string(i,name,10);
+                      char name[32] = {0};
+                      sprintf(name, "%d", i);
                       CDP_memory_str_val val_index_name;
                       val_index_name.name = name;
                       CDP_add_value_to_proxies(rt,id,&(p->u.array.u.values[i]),&val_index_name,CDP_CHILD);
@@ -55603,7 +55601,11 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
             if (abuf) {
                 memory_used_size += sizeof(*abuf);
                 if (abuf->data) {
-                  memory_used_size += abuf->byte_length;
+                  CDP_memory_str_val val;
+                  CDP_create_obj_name(&val, "array_buffer");
+                  memory_object_id child_id = getDumpMemoryId();
+                  rt->dump_memory_info.add_memory_object(rt,id,EntryHidden,child_id,&val,abuf->byte_length,NULL);
+                  rt->dump_memory_info.add_memory_object_child_by_id(rt, id, child_id, &val);
                 }
             }
             type = EntryArray;
