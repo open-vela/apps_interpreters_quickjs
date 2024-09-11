@@ -55665,6 +55665,9 @@ static void CDP_scan_js_obj_children(JSRuntime* rt,JSObject *p){
       rt->dump_memory_info.add_memory_object_size_by_id(rt, id, memory_used_size);
       rt->dump_memory_info.add_memory_object_type_by_id(rt, id, type);
       rt->dump_memory_info.add_memory_object_value_by_id(rt, id, &obj_name);
+      if (obj_name.flag == CDP_FREE_YES) {
+        JS_FreeCString(ctx, obj_name.name);
+      }
 }
 
 //Add JSValueConst to the proxy tree
@@ -55841,17 +55844,23 @@ static void CDP_add_async_func_to_proxies(JSRuntime *rt,JSAsyncFunctionState *s,
     CDP_add_value_to_proxies(rt,parent_id,&(s->resolving_funcs[0]),&child_name,CDP_CHILD);
     CDP_add_value_to_proxies(rt,parent_id,&(s->resolving_funcs[1]),&child_name,CDP_CHILD);
 }
+
 //Traverse the objects in the module module
-static void CDP_add_module_to_proxies(JSRuntime *rt,JSModuleDef *m,memory_object_id parent_id){
+static void CDP_add_module_to_proxies(JSRuntime *rt,JSModuleDef *m, memory_object_id parent_id){
     //@TODO Here you can add a virtual node
-    for(int i = 0; i < m->export_entries_count; i++) {
-        JSExportEntry *me = &m->export_entries[i];
-        if (me->export_type == JS_EXPORT_TYPE_LOCAL &&
-            me->u.local.var_ref) {
-            CDP_memory_str_val var_ref_name = CDP_get_obj_name(rt, me->export_name);
-            rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id, (memory_object_id)(uintptr_t)&me->u.local.var_ref->header,&var_ref_name);
+    if (m->export_entries) {
+        for(int i = 0; i < m->export_entries_count; i++) {
+            JSExportEntry *me = &m->export_entries[i];
+            if (me->export_type == JS_EXPORT_TYPE_LOCAL && me->u.local.var_ref) {
+                CDP_memory_str_val var_ref_name = CDP_get_obj_name(rt, me->export_name);
+                rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id, me->u.local.var_ref->header.id,&var_ref_name);
+                if (var_ref_name.flag == CDP_FREE_YES) {
+                    JS_FreeCString(rt->debugger_info.currCtx, var_ref_name.name);
+                }
+            }
         }
     }
+
     CDP_memory_str_val module_ns_name;
     CDP_create_obj_name(&module_ns_name, "module_ns");
     CDP_add_value_to_proxies(rt,parent_id,&(m->module_ns),&module_ns_name,CDP_CHILD);
@@ -55869,17 +55878,28 @@ static void CDP_add_module_to_proxies(JSRuntime *rt,JSModuleDef *m,memory_object
 static void CDP_add_context_to_proxies(JSRuntime *rt,JSContext *ctx){
     struct list_head *el = NULL;
     memory_object_id id = ctx->header.id;
+
+    JSShape *sh = ctx->array_shape;
+    if (sh && !sh->is_hashed) {
+        CDP_memory_str_val array_shape;
+        CDP_create_obj_name(&array_shape, "JSShape");
+        rt->dump_memory_info.add_memory_object_child_by_id(rt,id,sh->header.id,&array_shape);
+    }
+
     list_for_each(el, &ctx->loaded_modules) {
         JSModuleDef *m = list_entry(el, JSModuleDef, link);
         memory_object_id m_id = getDumpMemoryId();
         //Add the virtual node of the module here
         CDP_memory_str_val m_name = CDP_get_obj_name(rt,m->module_name);
-        rt->dump_memory_info.add_memory_object_child_by_id(rt,id,m_id,&m_name);
-        //Adding Modules to the Proxy Tree
         int64_t m_size = sizeof(JSModuleDef);
         rt->dump_memory_info.add_memory_object(rt,id,EntryObject,m_id,NULL,m_size,&m_name);
+        rt->dump_memory_info.add_memory_object_child_by_id(rt,id,m_id,&m_name);
+        if (m_name.flag == CDP_FREE_YES) {
+            JS_FreeCString(rt->debugger_info.currCtx, m_name.name);
+        }
         CDP_add_module_to_proxies(rt,m,m_id);
     }
+
     CDP_memory_str_val global_obj_name;
     CDP_create_obj_name(&global_obj_name, "global_obj");
     CDP_add_value_to_proxies(rt,id,&(ctx->global_obj),&global_obj_name,CDP_CHILD);
@@ -55894,7 +55914,6 @@ static void CDP_add_context_to_proxies(JSRuntime *rt,JSContext *ctx){
     CDP_add_value_to_proxies(rt,id,&(ctx->eval_obj),&eval_obj_name,CDP_CHILD);
     CDP_memory_str_val array_proto_values_name;
     CDP_create_obj_name(&array_proto_values_name, "array_proto_values");
-
     CDP_add_value_to_proxies(rt,id,&(ctx->array_proto_values),&array_proto_values_name,CDP_CHILD);
     CDP_memory_str_val native_error_proto;
     CDP_create_obj_name(&native_error_proto, "native_error_proto");
@@ -55908,11 +55927,10 @@ static void CDP_add_context_to_proxies(JSRuntime *rt,JSContext *ctx){
     rt->dump_memory_info.add_memory_object_child_by_id(rt,id,class_proto_id,&class_proto_name);
 
     for(int i = 0; i < rt->class_count; i++) {
-      char count[7] = {0};
-      CDP_memory_str_val class_count_name ;
-      CDP_int_to_string(i,count,10);
+      char count[32] = {0};
+      CDP_memory_str_val class_count_name;
+      sprintf(count, "%d", i);
       class_count_name.name = count;
-      class_count_name.flag = 0;
       CDP_add_value_to_proxies(rt,class_proto_id,&(ctx->class_proto[i]),&class_count_name,CDP_CHILD);
     }
     CDP_memory_str_val iterator_proto_name;
@@ -55936,11 +55954,6 @@ static void CDP_add_context_to_proxies(JSRuntime *rt,JSContext *ctx){
     CDP_memory_str_val function_proto_name;
     CDP_create_obj_name(&function_proto_name, "function_proto");
     CDP_add_value_to_proxies(rt,id,&(ctx->function_proto),&function_proto_name,CDP_CHILD);
-    CDP_memory_str_val array_shape;
-    CDP_create_obj_name(&array_shape, "array_shape");
-    if (ctx->array_shape){
-        rt->dump_memory_info.add_memory_object_child_by_id(rt, id, ctx->array_shape->header.id, &array_shape);
-    }
 }
 
 static void CDP_compute_jsshapeprop_size(JSRuntime *rt, JSShapeProperty* prop, memory_object_id parent_id) {
@@ -56017,11 +56030,9 @@ static void CDP_get_gc_object_info(JSRuntime *rt,JSGCObjectHeader *gp) {
   case JS_GC_OBJ_TYPE_JS_CONTEXT:
   {
     memory_used_size += sizeof(JSContext);
-    rt->dump_memory_info.add_memory_object(rt, INVALID_MEMORY_PTR, EntryObject, id, NULL,memory_used_size, NULL);
-    rt->dump_memory_info.add_memory_object_size_by_id(rt,id,memory_used_size);
     CDP_memory_str_val ctx_name;
     CDP_create_obj_name(&ctx_name, "ctx");
-    rt->dump_memory_info.add_memory_object_value_by_id(rt,id,&ctx_name);
+    rt->dump_memory_info.add_memory_object(rt, INVALID_MEMORY_PTR, EntrySynthetic, id, &ctx_name, memory_used_size, NULL);
     JSContext *ctx = (JSContext *)gp;
     CDP_add_context_to_proxies(rt, ctx);
   }
