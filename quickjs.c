@@ -1883,7 +1883,6 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
     rt->dump_memory_info.is_started_memory_tracking = 0;
     rt->dump_memory_info.is_memory_tracking_on_timer_started = 0;
-    rt->debugger_info.currCtx = NULL;
 #endif
     if (init_shape_hash(rt))
         goto fail;
@@ -2430,9 +2429,6 @@ JSContext *JS_NewContext(JSRuntime *rt)
     JS_AddIntrinsicPromise(ctx);
 #ifdef CONFIG_BIGNUM
     JS_AddIntrinsicBigInt(ctx);
-#endif
-#ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
-    rt->debugger_info.currCtx = ctx;
 #endif
     return ctx;
 }
@@ -55958,7 +55954,9 @@ static void CDP_add_context_to_proxies(JSRuntime *rt,JSContext *ctx){
 
 static void CDP_compute_jsshapeprop_size(JSRuntime *rt, JSShapeProperty* prop, memory_object_id parent_id) {
     CDP_memory_str_val child_name;
-    child_name = CDP_get_obj_name(rt, prop->atom);
+    // TODO： get JSShapeProperty atom name
+    CDP_create_obj_name(&child_name, CDP_UNKNOW_DEFAULT_NAME);
+    
     memory_object_id id = getDumpMemoryId();
     rt->dump_memory_info.add_memory_object(rt,parent_id,EntryObject,id,NULL,sizeof(JSShapeProperty),&child_name);
     rt->dump_memory_info.add_memory_object_child_by_id(rt,parent_id,id,&child_name);
