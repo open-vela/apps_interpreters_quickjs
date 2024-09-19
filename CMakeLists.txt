@@ -122,4 +122,3 @@ target_compile_options(quickjs PRIVATE ${QUICKJS_COMMON_OPT})
 target_compile_definitions(quickjs PRIVATE ${QUICKJS_DEF})
 
 include(qjsc.cmake)
-include(aiotjsc.cmake)
