@@ -552,7 +552,9 @@ struct JSGCObjectHeader {
     uint8_t dummy1; /* not used by the GC */
     uint16_t dummy2; /* not used by the GC */
     struct list_head link;
+#ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
     int64_t id;
+#endif
 };
 
 typedef struct JSVarRef {
