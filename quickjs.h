@@ -642,10 +642,13 @@ JSValue __js_printf_like(2, 3) JS_ThrowRangeError(JSContext *ctx, const char *fm
 JSValue __js_printf_like(2, 3) JS_ThrowInternalError(JSContext *ctx, const char *fmt, ...);
 JSValue JS_ThrowOutOfMemory(JSContext *ctx);
 
+#include "quickjs-trace.h"
+
 void __JS_FreeValue(JSContext *ctx, JSValue v);
 static inline void JS_FreeValue(JSContext *ctx, JSValue v)
 {
     if (JS_VALUE_HAS_REF_COUNT(v)) {
+        JS_Record_Backtrace_Ctx(ctx, v);
         JSRefCountHeader *p = (JSRefCountHeader *)JS_VALUE_GET_PTR(v);
         if (--p->ref_count <= 0) {
             __JS_FreeValue(ctx, v);
@@ -656,6 +659,7 @@ void __JS_FreeValueRT(JSRuntime *rt, JSValue v);
 static inline void JS_FreeValueRT(JSRuntime *rt, JSValue v)
 {
     if (JS_VALUE_HAS_REF_COUNT(v)) {
+        JS_Record_Backtrace_RT(rt, v);
         JSRefCountHeader *p = (JSRefCountHeader *)JS_VALUE_GET_PTR(v);
         if (--p->ref_count <= 0) {
             __JS_FreeValueRT(rt, v);
@@ -666,6 +670,7 @@ static inline void JS_FreeValueRT(JSRuntime *rt, JSValue v)
 static inline JSValue JS_DupValue(JSContext *ctx, JSValueConst v)
 {
     if (JS_VALUE_HAS_REF_COUNT(v)) {
+        JS_Record_Backtrace_Ctx(ctx, v);
         JSRefCountHeader *p = (JSRefCountHeader *)JS_VALUE_GET_PTR(v);
         p->ref_count++;
     }
@@ -675,6 +680,7 @@ static inline JSValue JS_DupValue(JSContext *ctx, JSValueConst v)
 static inline JSValue JS_DupValueRT(JSRuntime *rt, JSValueConst v)
 {
     if (JS_VALUE_HAS_REF_COUNT(v)) {
+        JS_Record_Backtrace_RT(rt, v);
         JSRefCountHeader *p = (JSRefCountHeader *)JS_VALUE_GET_PTR(v);
         p->ref_count++;
     }

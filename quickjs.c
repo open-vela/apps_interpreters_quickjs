@@ -373,6 +373,9 @@ struct JSRuntime {
     ProfileArray profile_func_list;
     uint32_t is_profile_calls_enabled;
 #endif
+#if CONFIG_INTERPRETERS_QUICKJS_MEMORY_LEAK_TRACE_DUP_SIZE > 0
+    int dup_size;
+#endif
 };
 
 struct JSClass {
@@ -1031,6 +1034,9 @@ struct JSObject {
         JSValue object_data;    /* for JS_SetObjectData(): 8/16/16 bytes */
     } u;
     /* byte sizes: 40/48/72 */
+#if CONFIG_INTERPRETERS_QUICKJS_MEMORY_LEAK_TRACE_SIZE > 0
+    JSBacktrace backtrace;
+#endif
 };
 
 enum {
@@ -2061,6 +2067,7 @@ void JS_FreeRuntime(JSRuntime *rt)
                 if (!header_done) {
                     printf("Object leaks:\n");
                     JS_DumpObjectHeader(rt);
+                    JS_PrintStackFrame(rt, p);
                     header_done = TRUE;
                 }
                 JS_DumpGCObject(rt, p);
@@ -4962,6 +4969,7 @@ static JSValue JS_NewObjectFromShape(JSContext *ctx, JSShape *sh, JSClassID clas
     }
     p->header.ref_count = 1;
     add_gc_object(ctx->rt, &p->header, JS_GC_OBJ_TYPE_JS_OBJECT);
+    JS_Init_StackBacktrace(ctx, p);
     return JS_MKPTR(JS_TAG_OBJECT, p);
 }
 
@@ -5577,6 +5585,9 @@ static void free_object(JSRuntime *rt, JSObject *p)
     p->u.opaque = NULL;
     p->u.func.var_refs = NULL;
     p->u.func.home_object = NULL;
+
+    JS_FreeStackBacktrace(rt, p);
+
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
     if(rt->dump_memory_info.is_memory_tracking_on_timer_started){
         CDP_remove_gc_obj(rt,&p->header);
@@ -56047,6 +56058,7 @@ JSValue JS_STOP_CPU_PROFILING(JSContext *ctx, const char* pkg_name) {
 // QUICKAPP ADD BEGIN
 #include "bytecode_func.c"
 #include "quickjs-native-proxy.c"
+#include "quickjs-trace.c"
 
 #ifndef DISABLE_EXPORT_API
 #include "quickjs-wamr.c"
