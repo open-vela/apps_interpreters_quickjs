@@ -1091,14 +1091,6 @@ JSValue JS_STOP_CPU_PROFILING(JSContext *ctx, const char* pkg_name);
 #undef js_unlikely
 #undef js_force_inline
 
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-int getMemoryDump(JSRuntime* rt);
-void setMemoryDump(JSRuntime* rt,int value);
-void clearNewObjVector(JSRuntime* rt);
-void print_memorydetails(JSContext *ctx,JSRuntime* rt);
-void setCurrentCtx(JSRuntime* rt,JSContext* currentCtx);
-void setRTPageStatus(JSRuntime* rt,char* val);
-#endif
 #ifdef __cplusplus
 } /* extern "C" { */
 #endif
