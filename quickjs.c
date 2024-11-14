@@ -47,9 +47,6 @@
 #include <malloc.h>
 #define CLOCK_REALTIME 0
 #endif
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-#include <syslog.h>
-#endif
 #include "cutils.h"
 #include "list.h"
 #include "quickjs.h"
@@ -294,99 +291,6 @@ typedef struct {
 } JSNumericOperations;
 #endif
 
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-static char* get_backtrace(JSContext *ctx);
-typedef struct  {
-    void* ptr;
-    char* stack;
-    char* pageStatus;
-}TimelineData;
-
-TimelineData newTimelineData(JSContext *ctx,void* ptr);
-
-typedef struct {
-    TimelineData* data;
-    int size;
-    int capacity;
-} vector;
-
-static vector* new_vector(int capacity) {
-    vector* vec = (vector*)malloc(sizeof(vector));
-    vec->data = malloc(capacity * sizeof(TimelineData));
-    vec->size = 0;
-    vec->capacity = capacity;
-    return vec;
-}
-
-static void vector_push_back(vector* vec, TimelineData value) {
-    if (vec->size == vec->capacity) {
-        vec->capacity = vec->capacity == 0 ? 500 : vec->capacity * 2;
-        vec->data = realloc(vec->data, sizeof(TimelineData) * vec->capacity);
-        if(!vec->data) {
-            assert(0 && "capacity resize failed !");
-        }
-    }
-    vec->data[vec->size++] = value;
-
-}
-
-static void vector_set(vector* vec, int index, TimelineData value);
-
-static void vector_del(vector* vec, int index) {
-    if(index <0 || index >= vec->size) {
-        assert(0 && "insert index out of range!");
-        return;
-    }
-    if(index == vec->size-1) {
-        vec->size--;
-        return;
-    }
-
-    for (int i = index; i < vec->size - 1; i++) {
-        vec->data[i] = vec->data[i + 1];
-    }
-    vec->size --;
-}
-
-static int vector_find(vector* vec, TimelineData value) {
-    for(int i = 0; i<vec->size;i++){
-        if(value.ptr == vec->data[i].ptr){
-            return i;
-        }
-    }
-    return -1;
-}
-
-static TimelineData vector_get(vector* vec, int index) {
-    if (index < 0 || index >= vec->size) {
-        fprintf(stderr, "vector_get: index out of range\n");
-        exit(1);
-    }
-    return vec->data[index];
-}
-
-static void vector_set(vector* vec, int index, TimelineData value) {
-    if (index < 0 || index >= vec->size) {
-        fprintf(stderr, "vector_set: index out of range\n");
-        exit(1);
-    }
-    vec->data[index] = value;
-}
-
-static void vector_free(vector* vec) {
-    for(int i = 0;i<vec->size;i++){
-        if(vec->data[i].stack){
-            if(vec->data[i].stack)
-                free(vec->data[i].stack);
-            if(vec->data[i].pageStatus)
-                free(vec->data[i].pageStatus);
-        }
-    }
-    free(vec->data);
-    free(vec);
-}
-#endif
-
 struct JSRuntime {
     JSMallocFunctions mf;
     JSMallocState malloc_state;
@@ -460,12 +364,6 @@ struct JSRuntime {
     struct DumpMemoryInfo dump_memory_info;
 #endif
     JSOutOfMemoryTracker* oom_tracker;
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-    int isStartMemoryDump;
-    vector* newObjVector;
-    JSContext* currentCtx;
-    char* pageStatus;
-#endif
 #ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
     int32_t const_atom_count;
     uint8_t* const_jsstring_buffer;
@@ -476,32 +374,6 @@ struct JSRuntime {
     uint32_t is_profile_calls_enabled;
 #endif
 };
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-
-void setRTPageStatus(JSRuntime* rt,char* val){
-    if(rt->pageStatus){
-        free(rt->pageStatus);
-    }
-    rt->pageStatus = val;
-};
-
-
-void setCurrentCtx(JSRuntime* rt,JSContext* currentCtx){
-    rt->currentCtx = currentCtx;
-};
-
-int getMemoryDump(JSRuntime* rt){
-    return rt->isStartMemoryDump;
-};
-void setMemoryDump(JSRuntime* rt,int value){
-    rt->isStartMemoryDump = value;
-};
-void clearNewObjVector(JSRuntime* rt){
-    if(rt->newObjVector)
-        vector_free(rt->newObjVector);
-    rt->newObjVector = NULL;
-};
-#endif
 
 struct JSClass {
     uint32_t class_id; /* 0 means free entry */
@@ -1463,11 +1335,7 @@ static JSValue js_c_function_data_call(JSContext *ctx, JSValueConst func_obj,
 static JSAtom js_symbol_to_atom(JSContext *ctx, JSValue val);
 static void add_gc_object(JSRuntime *rt, JSGCObjectHeader *h,
                           JSGCObjectTypeEnum type);
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-static void remove_gc_object(JSRuntime *rt,JSGCObjectHeader *h);
-#else
 static void remove_gc_object(JSGCObjectHeader *h);
-#endif
 static JSValue js_instantiate_prototype(JSContext *ctx, JSObject *p, JSAtom atom, void *opaque);
 static JSValue js_module_ns_autoinit(JSContext *ctx, JSObject *p, JSAtom atom,
                                  void *opaque);
@@ -1877,11 +1745,6 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
     rt->class_array[JS_CLASS_C_FUNCTION_DATA].call = js_c_function_data_call;
     rt->class_array[JS_CLASS_BOUND_FUNCTION].call = js_call_bound_function;
     rt->class_array[JS_CLASS_GENERATOR_FUNCTION].call = js_generator_function_call;
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-    rt->isStartMemoryDump = 0;
-    rt->newObjVector = NULL;
-    rt->pageStatus = NULL;
-#endif
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
     rt->dump_memory_info.is_started_memory_tracking = 0;
     rt->dump_memory_info.is_memory_tracking_on_timer_started = 0;
@@ -2016,12 +1879,6 @@ void JS_SetGCThreshold(JSRuntime *rt, size_t gc_threshold)
 {
     rt->malloc_gc_threshold = gc_threshold;
 }
-
-#ifndef CONFIG_MEMORY_LEAK_TRACK
-#define malloc(s) malloc_is_forbidden(s)
-#define free(p) free_is_forbidden(p)
-#define realloc(p,s) realloc_is_forbidden(p,s)
-#endif
 
 void JS_SetInterruptHandler(JSRuntime *rt, JSInterruptHandler *cb, void *opaque)
 {
@@ -2173,12 +2030,6 @@ void JS_FreeRuntime(JSRuntime *rt)
     int i;
 
     JS_FreeValueRT(rt, rt->current_exception);
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-    if(rt->newObjVector){
-        vector_free(rt->newObjVector);
-        rt->newObjVector = NULL;
-    }
-#endif
     list_for_each_safe(el, el1, &rt->job_list) {
         JSJobEntry *e = list_entry(el, JSJobEntry, link);
         for(i = 0; i < e->argc; i++)
@@ -2365,10 +2216,6 @@ void JS_FreeRuntime(JSRuntime *rt)
                    (uint64_t)(s->malloc_count - 1), &"s"[s->malloc_count == 2]);
         }
     }
-#endif
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-    if(rt->pageStatus)
-        free(rt->pageStatus);
 #endif
     {
         JSMallocState ms = rt->malloc_state;
@@ -2602,11 +2449,7 @@ void JS_FreeContext(JSContext *ctx)
         CDP_remove_gc_obj(rt,&ctx->header);
     }
 #endif
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-    remove_gc_object(ctx->rt,&ctx->header);
-#else
     remove_gc_object(&ctx->header);
-#endif
     js_free_rt(ctx->rt, ctx);
 }
 
@@ -4721,11 +4564,7 @@ static void js_free_shape0(JSRuntime *rt, JSShape *sh)
         CDP_remove_gc_obj(rt,&sh->header);
     }
 #endif
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-    remove_gc_object(rt,&sh->header);
-#else
     remove_gc_object(&sh->header);
-#endif
     js_free_rt(rt, get_alloc_from_shape(sh));
 }
 
@@ -5548,11 +5387,7 @@ static void free_var_ref(JSRuntime *rt, JSVarRef *var_ref)
                 CDP_remove_gc_obj(rt,&var_ref->header);
             }
 #endif
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-            remove_gc_object(rt,&var_ref->header);
-#else
             remove_gc_object(&var_ref->header);
-#endif
             js_free_rt(rt, var_ref);
         }
     }
@@ -5747,11 +5582,7 @@ static void free_object(JSRuntime *rt, JSObject *p)
         CDP_remove_gc_obj(rt,&p->header);
     }
 #endif
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-                remove_gc_object(rt,&p->header);
-#else
-                remove_gc_object(&p->header);
-#endif
+    remove_gc_object(&p->header);
     if (rt->gc_phase == JS_GC_PHASE_REMOVE_CYCLES && p->header.ref_count != 0) {
         list_add_tail(&p->header.link, &rt->gc_zero_ref_count_list);
     } else {
@@ -5885,32 +5716,6 @@ static void add_gc_object(JSRuntime *rt, JSGCObjectHeader *h,
 {
     h->mark = 0;
     h->gc_obj_type = type;
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-    if(rt->isStartMemoryDump){
-        if(!rt->newObjVector){
-            rt->newObjVector = new_vector(16);
-        }
-
-    //note: Open the type according to your needs
-     /*    ppp->class_id == JS_CLASS_OBJECT ||
-                ppp->class_id == JS_CLASS_ARRAY ||
-                ppp->class_id == JS_CLASS_ARGUMENTS ||
-                ppp->class_id == JS_CLASS_BYTECODE_FUNCTION ||
-                ppp->class_id == JS_CLASS_C_FUNCTION ||
-                ppp->class_id == JS_CLASS_BYTECODE_FUNCTION ||
-                ppp->class_id == JS_CLASS_BOUND_FUNCTION ||
-                ppp->class_id == JS_CLASS_C_FUNCTION_DATA ||
-                ppp->class_id == JS_CLASS_REGEXP ||
-                ppp->class_id == JS_CLASS_FOR_IN_ITERATOR || */
-       // if(h->gc_obj_type == JS_GC_OBJ_TYPE_JS_OBJECT) {
-            JSObject* ppp = (JSObject*)h;
-                // if(  ppp->class_id == JS_CLASS_OBJECT ){
-                    TimelineData ptr = newTimelineData(rt->currentCtx, h);
-                    vector_push_back(rt->newObjVector, ptr);
-                // }
-        //}
-    }
-#endif
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
     h->id = getDumpMemoryId();
 //所有的gc对象创建都需要走这里
@@ -5920,67 +5725,8 @@ if(rt->dump_memory_info.is_memory_tracking_on_timer_started){
 #endif
     list_add_tail(&h->link, &rt->gc_obj_list);
 }
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-
-void print_memorydetails(JSContext *ctx,JSRuntime* rt){
-    struct list_head *el;
-    for(int i = 0;i < rt->newObjVector->size; i++){
-        int found = 0;
-        list_for_each(el, &rt->gc_obj_list) {
-            JSGCObjectHeader *gp = list_entry(el, JSGCObjectHeader, link);
-            if(gp == rt->newObjVector->data[i].ptr) {
-                found = 1;
-                break;
-            }
-        }
-        if(!found) {
-            TimelineData val;
-            val.ptr = NULL;
-            val.stack=NULL;
-            vector_set(rt->newObjVector, i, val);
-        }
-    }
-    for(int i = 0;i < rt->newObjVector->size; i++){
-        JSGCObjectHeader* ppp = (JSGCObjectHeader*)(rt->newObjVector->data[i].ptr);
-        if(!ppp) continue;
-        syslog(LOG_ERR,"[MEMORY LEAK TRACK]: %p: ref_count: %d, gc type: %d\n",ppp, ppp->ref_count, ppp->gc_obj_type);
-        if(ppp->gc_obj_type == JS_GC_OBJ_TYPE_JS_OBJECT){
-            JSObject* p_obj = (JSObject*)ppp;
-            JSValue jsonObj = JS_JSONStringify(ctx,JS_MKVAL(JS_TAG_OBJECT, p_obj),JS_UNDEFINED,JS_UNDEFINED);
-            const char* p_string = JS_ToCString(ctx, jsonObj);
-            syslog(LOG_ERR,"[MEMORY LEAK TRACK]: %p to object is================================ %s\n",ppp,p_string);
-
-            JS_FreeValue(ctx,jsonObj);
-            JS_FreeCString(ctx, p_string);
-        }
-        syslog(LOG_ERR,"[MEMORY LEAK TRACK]: ppp->gc_obj_type ============================== %d\n",ppp->gc_obj_type);
-        if(rt->newObjVector->data[i].pageStatus)
-            syslog(LOG_ERR,"[MEMORY LEAK TRACK]: page status============================ %s\n",rt->newObjVector->data[i].pageStatus);
-        if(rt->newObjVector->data[i].stack)
-            syslog(LOG_ERR," [MEMORY LEAK TRACK]: stack============================\n %s\n",rt->newObjVector->data[i].stack);
-    }
-    
-}
-#endif
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-static void remove_gc_object(JSRuntime* rt,JSGCObjectHeader *h)
-#else
 static void remove_gc_object(JSGCObjectHeader *h)
-#endif
 {
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-    if(rt->isStartMemoryDump && rt->newObjVector){
-        for(int i = 0;i < rt->newObjVector -> size;i++){
-            TimelineData val;
-            val.ptr = h;
-            val.stack=NULL;
-            int index = vector_find(rt->newObjVector,val);
-            if(index > -1){
-                vector_del(rt->newObjVector,index);
-            }
-        }
-    }
-#endif
     list_del(&h->link);
 }
 
@@ -6907,132 +6653,6 @@ STATIC const char *get_func_name(JSContext *ctx, JSValueConst func)
 #define JS_BACKTRACE_FLAG_SKIP_FIRST_LEVEL (1 << 0)
 /* only taken into account if filename is provided */
 #define JS_BACKTRACE_FLAG_SINGLE_LEVEL     (1 << 1)
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-static char* get_backtrace(JSContext *ctx) {
-  JSStackFrame *sf;
-  const char *func_name_str;
-  const char *str1;
-  JSObject *p;
-  BOOL backtrace_barrier;
-  char dbuf[10240] = {0};
-  for(sf = ctx->rt->current_stack_frame; sf != NULL; sf = sf->prev_frame) {
-    func_name_str = get_func_name(ctx, sf->cur_func);
-    if (!func_name_str || func_name_str[0] == '\0')
-        str1 = "<anonymous>";
-    else
-        str1 = func_name_str;
-    sprintf(dbuf + strlen(dbuf), "    at %s", str1);
-    JS_FreeCString(ctx, func_name_str);
-
-    p = JS_VALUE_GET_OBJ(sf->cur_func);
-    backtrace_barrier = FALSE;
-    if (js_class_has_bytecode(p->class_id)) {
-        JSFunctionBytecode *b;
-        const char *atom_str;
-        int line_num1;
-
-        b = p->u.func.function_bytecode;
-        backtrace_barrier = b->backtrace_barrier;
-        if (b->has_debug) {
-            line_num1 = find_line_num(ctx, b,
-                                      sf->cur_pc - b->byte_code_buf - 1);
-            atom_str = JS_AtomToCString(ctx, b->debug.filename);
-            sprintf(dbuf + strlen(dbuf), " (%s",
-                        atom_str ? atom_str : "<null>");
-            JS_FreeCString(ctx, atom_str);
-            if (line_num1 != -1)
-              sprintf(dbuf + strlen(dbuf), ":%d", line_num1);
-            sprintf(dbuf + strlen(dbuf), ")");
-        }
-    } else {
-      sprintf(dbuf + strlen(dbuf), " (native)");
-    }
-    sprintf(dbuf + strlen(dbuf), "\n");
-    /* stop backtrace if JS_EVAL_FLAG_BACKTRACE_BARRIER was used */
-    if (backtrace_barrier)
-        break;
-  }
-  char* result = malloc(strlen(dbuf)+1);
-  strcpy(result, dbuf);
-  return result;
-}
-
-
-TimelineData newTimelineData(JSContext *ctx,void* ptr){
-    TimelineData timelineDataPtr;
-    timelineDataPtr.ptr = ptr;
-    JSGCObjectHeader* h= (JSGCObjectHeader*)ptr;
-    if(JS_GetRuntime(ctx)->pageStatus){
-        timelineDataPtr.pageStatus = (char*)malloc(strlen(JS_GetRuntime(ctx)->pageStatus)+1);
-        strcpy(timelineDataPtr.pageStatus, JS_GetRuntime(ctx)->pageStatus);
-    }else {
-        timelineDataPtr.pageStatus = NULL;
-    }
-    if(h->gc_obj_type == JS_GC_OBJ_TYPE_JS_OBJECT){
-        timelineDataPtr.stack = get_backtrace(ctx);
-    }else{
-        timelineDataPtr.stack = NULL;
-    }
-    return timelineDataPtr;
-};
-
-static void print_backtrace(void *ptr, JSContext *ctx, size_t size) {
-  JSStackFrame *sf;
-  const char *func_name_str;
-  const char *str1;
-  JSObject *p;
-  BOOL backtrace_barrier;
-  char dbuf[10240] = {0};
-//   extern size_t g_quickjs_backtrace_min_size;
-  /* Do not dump the small memory backtrace */
-//   if (size < g_quickjs_backtrace_min_size)
-//     return;
-
-#if 0
-  syslog(LOG_ERR, "== ptr:%p, size:%zu\n", ptr, size);
-  return;
-#endif
-
-  for(sf = ctx->rt->current_stack_frame; sf != NULL; sf = sf->prev_frame) {
-    func_name_str = get_func_name(ctx, sf->cur_func);
-    if (!func_name_str || func_name_str[0] == '\0')
-        str1 = "<anonymous>";
-    else
-        str1 = func_name_str;
-    sprintf(dbuf + strlen(dbuf), "    at %s", str1);
-    JS_FreeCString(ctx, func_name_str);
-
-    p = JS_VALUE_GET_OBJ(sf->cur_func);
-    backtrace_barrier = FALSE;
-    if (js_class_has_bytecode(p->class_id)) {
-        JSFunctionBytecode *b;
-        const char *atom_str;
-        int line_num1;
-
-        b = p->u.func.function_bytecode;
-        backtrace_barrier = b->backtrace_barrier;
-        if (b->has_debug) {
-            line_num1 = find_line_num(ctx, b,
-                                      sf->cur_pc - b->byte_code_buf - 1);
-            atom_str = JS_AtomToCString(ctx, b->debug.filename);
-            sprintf(dbuf + strlen(dbuf), " (%s",
-                        atom_str ? atom_str : "<null>");
-            JS_FreeCString(ctx, atom_str);
-            if (line_num1 != -1)
-              sprintf(dbuf + strlen(dbuf), ":%d", line_num1);
-            sprintf(dbuf + strlen(dbuf), ")");
-        }
-    } else {
-      sprintf(dbuf + strlen(dbuf), " (native)");
-    }
-    sprintf(dbuf + strlen(dbuf), "\n");
-    /* stop backtrace if JS_EVAL_FLAG_BACKTRACE_BARRIER was used */
-    if (backtrace_barrier)
-        break;
-  }
-  syslog(LOG_ERR, "[MEMORY LEAK TRACK]: ==== ptr:%p, size:%zu, bt: %s\n", ptr, size, dbuf);
-}
-#endif
 
 /* if filename != NULL, an additional level is added with the filename
    and line number information (used for parse error). */
@@ -33470,11 +33090,7 @@ static void free_function_bytecode(JSRuntime *rt, JSFunctionBytecode *b)
         CDP_remove_gc_obj(rt,&b->header);
     }
 #endif
-#ifdef CONFIG_MEMORY_LEAK_TRACK
-    remove_gc_object(rt,&b->header);
-#else
     remove_gc_object(&b->header);
-#endif
     if (rt->gc_phase == JS_GC_PHASE_REMOVE_CYCLES && b->header.ref_count != 0) {
         list_add_tail(&b->header.link, &rt->gc_zero_ref_count_list);
     } else {
