@@ -1072,7 +1072,6 @@ char *save_atom_array(JSRuntime *rt, size_t *psize);
 
 /* Extension API for config tool*/
 #ifdef QUICKJS_CONFIG_TOOL
-void write_heap_to_file(JSRuntime *rt);
 void dump_memory_usage(JSRuntime *rt, FILE *fp);
 void dump_objects(JSRuntime *rt);
 #endif
