@@ -56056,7 +56056,27 @@ JSValue JS_STOP_CPU_PROFILING(JSContext *ctx, const char* pkg_name) {
 // 关闭优化
 #pragma GCC push_options
 #pragma GCC optimize ("O0")
-#include "./heap/write-heap.c"
+void dump_memory_usage(JSRuntime *rt, FILE *fp) {
+  JSMemoryUsage stats;
+  JS_ComputeMemoryUsage(rt, &stats);
+  JS_DumpMemoryUsage(fp, &stats, rt);
+}
+
+void dump_objects(JSRuntime *rt) {
+  JS_DumpAtoms(rt);
+  JS_DumpShapes(rt);
+  {
+    struct list_head *el;
+    JSGCObjectHeader *p;
+    printf("JSObjects: {\n");
+    JS_DumpObjectHeader(rt);
+    list_for_each(el, &rt->gc_obj_list) {
+      p = list_entry(el, JSGCObjectHeader, link);
+      JS_DumpGCObject(rt, p);
+    }
+    printf("}\n");
+  }
+}
 #pragma GCC pop_options
 #endif
 
