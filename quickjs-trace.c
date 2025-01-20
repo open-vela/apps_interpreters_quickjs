@@ -35,6 +35,7 @@ static char *get_jsstacktrace(JSContext *ctx, JSValue exception) {
   char *jsStackTrace = js_strdup(ctx, stackStr);
   // Free the C string and the message value
   JS_FreeCString(ctx, stackStr);
+  JS_FreeValue(ctx, message);
 
   return jsStackTrace;
 }
