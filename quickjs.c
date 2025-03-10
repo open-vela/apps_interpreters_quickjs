@@ -16452,7 +16452,7 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
 #define BREAK           SWITCH(pc)
 
 #ifdef CONFIG_INTERPRETERS_QUICKJS_DEBUG
-    const void * const * active_dispatch_table = caller_ctx->rt->debugger_info.ws_peer
+    const void * const * active_dispatch_table = caller_ctx->rt->debugger_info.cdp_server
         ? debugger_dispatch_table : dispatch_table;
 #else
     const void * const * active_dispatch_table = dispatch_table;
