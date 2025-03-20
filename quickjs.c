@@ -134,8 +134,12 @@
 #include <errno.h>
 #endif
 
-#if defined(__NuttX__) && defined(QUICKJS_CONFIG_TOOL)
+#if defined(__NuttX__)
 #include <syslog.h>
+#define printf(...) syslog(LOG_INFO, __VA_ARGS__)
+#endif
+
+#if defined(__NuttX__) && defined(QUICKJS_CONFIG_TOOL)
 #define printf(...) qjs_log(__VA_ARGS__)
 #define putchar(c) qjs_log("%c", c)
 
