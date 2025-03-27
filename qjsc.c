@@ -33,6 +33,8 @@
 #include <sys/wait.h>
 #endif
 
+#undef optind
+
 #include "cutils.h"
 #include "quickjs-libc.h"
 
