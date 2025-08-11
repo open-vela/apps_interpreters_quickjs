@@ -1070,12 +1070,6 @@ void qjs_set_log_fd(FILE *fp);
 void qjs_reset_log_fd(void);
 #endif
 
-/* Extension API for ByteCode Optimization*/
-#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
-JSRuntime *JS_NewRuntime_Ex(const uint8_t *rt_str_info);
-#endif
-char *save_atom_array(JSRuntime *rt, size_t *psize);
-
 /* Extension API for config tool*/
 #ifdef QUICKJS_CONFIG_TOOL
 void dump_memory_usage(JSRuntime *rt, FILE *fp);
