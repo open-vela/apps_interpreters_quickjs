@@ -364,10 +364,6 @@ struct JSRuntime {
     struct DumpMemoryInfo dump_memory_info;
 #endif
     JSOutOfMemoryTracker* oom_tracker;
-#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
-    int32_t const_atom_count;
-    uint8_t* const_jsstring_buffer;
-#endif
 #ifdef CONFIG_QUICKJS_CPUPROFILING
     ProfileAllocator profile_allocator;
     ProfileArray profile_func_list;
@@ -1715,10 +1711,6 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
     rt->malloc_state = ms;
     rt->malloc_gc_threshold = 256 * 1024;
 
-#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
-    rt->const_atom_count = JS_ATOM_END;
-#endif
-
 #ifdef CONFIG_BIGNUM
     bf_context_init(&rt->bf_ctx, js_bf_realloc, rt);
     set_dummy_numeric_ops(&rt->bigint_ops);
@@ -2107,9 +2099,6 @@ void JS_FreeRuntime(JSRuntime *rt)
             JSAtomStruct *p = rt->atom_array[i];
             if (!atom_is_free(p) /* && p->str*/) {
                 int const_atom_count = JS_ATOM_END;
-#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
-                const_atom_count = rt->const_atom_count;
-#endif
                 if (i >= const_atom_count || p->header.ref_count != 1) {
                     if (!header_done) {
                         header_done = TRUE;
@@ -2167,21 +2156,10 @@ void JS_FreeRuntime(JSRuntime *rt)
 #ifdef DUMP_LEAKS
             list_del(&p->link);
 #endif
-#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
-            if(i < rt->const_atom_count && rt->const_jsstring_buffer) {
-                continue;
-            }
-#endif
             js_free_rt(rt, p);
         }
     }
 
-#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
-    // 释放字节码优化块
-    if(rt->const_jsstring_buffer) {
-        js_free_rt(rt, rt->const_jsstring_buffer);
-    }
-#endif
     js_free_rt(rt, rt->atom_array);
     js_free_rt(rt, rt->atom_hash);
     js_free_rt(rt, rt->shape_hash);
@@ -2518,17 +2496,6 @@ static inline BOOL __JS_AtomIsConst(JSAtom v)
 #endif
 }
 
-static inline BOOL __JS_AtomIsConst_Ex(JSRuntime* rt, JSAtom v)
-{
-#ifndef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
-    return __JS_AtomIsConst(v);
-#elif defined(DUMP_LEAKS) && DUMP_LEAKS > 1
-    return (int32_t)v <= 0;
-#else
-    return (int32_t)v < rt->const_atom_count;
-#endif
-}
-
 static inline BOOL __JS_AtomIsTaggedInt(JSAtom v)
 {
     return (v & JS_ATOM_TAG_INT) != 0;
@@ -2749,7 +2716,7 @@ static JSAtom JS_DupAtomRT(JSRuntime *rt, JSAtom v)
 {
     JSAtomStruct *p;
 
-    if (!__JS_AtomIsConst_Ex(rt, v)) {
+    if (!__JS_AtomIsConst(v)) {
         p = rt->atom_array[v];
         p->header.ref_count++;
     }
@@ -2761,7 +2728,7 @@ JSAtom JS_DupAtom(JSContext *ctx, JSAtom v)
     JSRuntime *rt;
     JSAtomStruct *p;
 
-    if (!__JS_AtomIsConst_Ex(ctx->rt, v)) {
+    if (!__JS_AtomIsConst(v)) {
         rt = ctx->rt;
         p = rt->atom_array[v];
         p->header.ref_count++;
@@ -2836,7 +2803,7 @@ static JSAtom __JS_NewAtom(JSRuntime *rt, JSString *str, int atom_type)
             /* str is the atom, return its index */
             i = js_get_atom_index(rt, str);
             /* reduce string refcount and increase atom's unless constant */
-            if (__JS_AtomIsConst_Ex(rt, i))
+            if (__JS_AtomIsConst(i))
                 str->header.ref_count--;
             return i;
         }
@@ -2852,7 +2819,7 @@ static JSAtom __JS_NewAtom(JSRuntime *rt, JSString *str, int atom_type)
                 p->atom_type == atom_type &&
                 p->len == len &&
                 js_string_memcmp(p, str, len) == 0) {
-                if (!__JS_AtomIsConst_Ex(rt, i))
+                if (!__JS_AtomIsConst(i))
                     p->header.ref_count++;
                 goto done;
             }
@@ -3006,7 +2973,7 @@ static JSAtom __JS_FindAtom(JSRuntime *rt, const char *str, size_t len,
             p->len == len &&
             p->is_wide_char == 0 &&
             memcmp(p->u.str8, str, len) == 0) {
-            if (!__JS_AtomIsConst_Ex(rt, i))
+            if (!__JS_AtomIsConst(i))
                 p->header.ref_count++;
             return i;
         }
@@ -3060,10 +3027,6 @@ static void JS_FreeAtomStruct(JSRuntime *rt, JSAtomStruct *p)
 
 static void __JS_FreeAtom(JSRuntime *rt, uint32_t i)
 {
-#ifdef CONFIG_QUICKAPP_BYTECODE_OPTIMIZATION
-    if (i < rt->const_atom_count && rt->const_jsstring_buffer)
-        return;
-#endif
     JSAtomStruct *p;
 
     p = rt->atom_array[i];
@@ -3383,13 +3346,13 @@ STATIC int JS_AtomIsNumericIndex(JSContext *ctx, JSAtom atom)
 
 void JS_FreeAtom(JSContext *ctx, JSAtom v)
 {
-    if (!__JS_AtomIsConst_Ex(ctx->rt, v))
+    if (!__JS_AtomIsConst(v))
         __JS_FreeAtom(ctx->rt, v);
 }
 
 void JS_FreeAtomRT(JSRuntime *rt, JSAtom v)
 {
-    if (!__JS_AtomIsConst_Ex(rt, v))
+    if (!__JS_AtomIsConst(v))
         __JS_FreeAtom(rt, v);
 }
 
@@ -56056,7 +56019,6 @@ JSValue JS_STOP_CPU_PROFILING(JSContext *ctx, const char* pkg_name) {
 #endif
 
 // QUICKAPP ADD BEGIN
-#include "bytecode_func.c"
 #include "quickjs-native-proxy.c"
 #include "quickjs-trace.c"
 
