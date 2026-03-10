@@ -5831,6 +5831,8 @@ static void mark_children(JSRuntime *rt, JSGCObjectHeader *gp,
     }
 }
 
+static JSGCObjectHeader *gc_decref_current_parent;
+
 static void gc_decref_child(JSRuntime *rt, JSGCObjectHeader *p)
 {
     //  assert(p->ref_count > 0);
@@ -5843,7 +5845,13 @@ static void gc_decref_child(JSRuntime *rt, JSGCObjectHeader *p)
     } else {
         // 临时代码，检查内存泄漏检查，后续去掉
         printf("==== ref count error : %d %d %d=====\n", p->gc_obj_type, p->ref_count, p->mark);
+        printf("==== child object:\n");
         JS_DumpGCObject(rt, p);
+        printf("==== parent object (%d %d %d):\n",
+               gc_decref_current_parent->gc_obj_type,
+               gc_decref_current_parent->ref_count,
+               gc_decref_current_parent->mark);
+        JS_DumpGCObject(rt, gc_decref_current_parent);
         assert(p->ref_count > 0);
     }
 }
@@ -5861,6 +5869,7 @@ static void gc_decref(JSRuntime *rt)
     list_for_each_safe(el, el1, &rt->gc_obj_list) {
         p = list_entry(el, JSGCObjectHeader, link);
         assert(p->mark == 0);
+        gc_decref_current_parent = p;
         mark_children(rt, p, gc_decref_child);
         p->mark = 1;
         if (p->ref_count == 0) {
