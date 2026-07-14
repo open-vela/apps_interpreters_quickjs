@@ -6,7 +6,12 @@ set(prefix "/usr/local")
 
 set(QUICKJS_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-if(CONFIG_DARWIN)
+# macOS host build: CONFIG_DARWIN is not propagated to this host-tool project,
+# so it takes the gcc branch and uses gcc-ar/gcc-ranlib, which are absent on
+# macOS. Detect a macOS host via CMAKE_HOST_APPLE and take the clang branch with
+# the default ar instead. CMAKE_HOST_APPLE reflects the host only and is not
+# affected by any cross toolchain.
+if(CONFIG_DARWIN OR CMAKE_HOST_APPLE)
   set(CONFIG_CLANG y)
   set(CONFIG_DEFAULT_AR y)
 endif()
@@ -118,6 +123,13 @@ set(QUICKJS_SRC
     ${QUICKJS_DIR}/profile_utils.c
     ${QUICKJS_DIR}/quickjs-debugger.c
     ${QUICKJS_DIR}/quickjs-memorydump.c)
+# macOS host build: quickjs.c uses `uint` but does not include <sys/types.h>;
+# glibc pulls it in under _GNU_SOURCE on Linux, but macOS needs it explicitly.
+# Only affects the host-tool build on macOS.
+if(CMAKE_HOST_APPLE)
+  list(APPEND QUICKJS_COMMON_OPT -include sys/types.h)
+endif()
+
 add_library(quickjs ${QUICKJS_SRC})
 target_compile_options(quickjs PRIVATE ${QUICKJS_COMMON_OPT})
 target_compile_definitions(quickjs PRIVATE ${QUICKJS_DEF})
